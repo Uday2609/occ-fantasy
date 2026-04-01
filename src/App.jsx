@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabase";
 
+// ─── CONSTANTS ─────────────────────────────────────────────────────────────────
+
+const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
+const ACTIVE_GW = 1;
+
 const COLORS = {
   purple: "#6B4EAA",
   purpleDark: "#3D2870",
@@ -53,7 +58,6 @@ const SQUAD_SIZE = 15;
 const TRANSFERS_PER_GW = 4;
 const MARQUEE_PRICE = 100;
 const MAX_MARQUEE = 3;
-const ACTIVE_GW = 1;
 
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap');
@@ -67,15 +71,37 @@ const globalStyles = `
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 `;
 
+// ─── POINTS CALCULATOR ─────────────────────────────────────────────────────────
+
+function calcPoints(s) {
+  let pts = 0;
+  // Batting
+  pts += (s.runs || 0);
+  pts += (s.fours || 0) * 4;
+  pts += (s.sixes || 0) * 6;
+  if ((s.runs || 0) >= 100) pts += 35;
+  else if ((s.runs || 0) >= 50) pts += 20;
+  if (s.was_dismissed && (s.runs || 0) === 0 && s.did_bat) pts -= 5;
+  // Bowling
+  pts += (s.wickets || 0) * 10;
+  if (s.five_fer) pts += 35;
+  else if (s.three_fer) pts += 20;
+  // Fielding
+  pts += (s.catches || 0) * 15;
+  pts += (s.run_outs || 0) * 15;
+  pts += (s.stumpings || 0) * 15;
+  // Penalties
+  pts -= (s.no_balls || 0);
+  pts -= Math.floor((s.wides || 0) / 3);
+  return Math.max(pts, 0);
+}
+
+// ─── SHARED COMPONENTS ─────────────────────────────────────────────────────────
+
 function Spinner({ label = "Loading..." }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 16 }}>
-      <div style={{
-        width: 40, height: 40, borderRadius: "50%",
-        border: `3px solid ${COLORS.purpleMid}`,
-        borderTop: `3px solid ${COLORS.gold}`,
-        animation: "spin 0.8s linear infinite",
-      }} />
+      <div style={{ width: 40, height: 40, borderRadius: "50%", border: `3px solid ${COLORS.purpleMid}`, borderTop: `3px solid ${COLORS.gold}`, animation: "spin 0.8s linear infinite" }} />
       <div style={{ fontSize: 13, color: COLORS.gray }}>{label}</div>
     </div>
   );
@@ -85,15 +111,7 @@ function Input({ label, type = "text", value, onChange, placeholder, error }) {
   return (
     <div style={{ marginBottom: 16 }}>
       {label && <div style={{ fontSize: 12, color: COLORS.gray, marginBottom: 6, fontWeight: 500 }}>{label}</div>}
-      <input
-        type={type} value={value} onChange={onChange} placeholder={placeholder}
-        style={{
-          width: "100%", background: COLORS.purpleMid,
-          border: `1px solid ${error ? COLORS.danger : COLORS.purpleLight}40`,
-          color: COLORS.white, borderRadius: 8, padding: "10px 14px",
-          fontSize: 14, outline: "none",
-        }}
-      />
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} style={{ width: "100%", background: COLORS.purpleMid, border: `1px solid ${error ? COLORS.danger : COLORS.purpleLight}40`, color: COLORS.white, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
       {error && <div style={{ fontSize: 11, color: COLORS.danger, marginTop: 4 }}>{error}</div>}
     </div>
   );
@@ -101,11 +119,25 @@ function Input({ label, type = "text", value, onChange, placeholder, error }) {
 
 function RoleBadge({ role }) {
   const c = ROLE_COLORS[role];
+  return <span style={{ background: c + "25", color: c, border: `1px solid ${c}50`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>{ROLE_LABELS[role]}</span>;
+}
+
+function StatPill({ label, value, accent }) {
   return (
-    <span style={{
-      background: c + "25", color: c, border: `1px solid ${c}50`,
-      borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600,
-    }}>{ROLE_LABELS[role]}</span>
+    <div style={{ background: COLORS.purpleMid, borderRadius: 10, padding: "12px 16px", border: `1px solid ${(accent || COLORS.gold)}28`, textAlign: "center" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: accent || COLORS.gold }}>{value}</div>
+      <div style={{ fontSize: 11, color: COLORS.gray, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function Header({ title, sub }) {
+  return (
+    <div style={{ padding: "36px 32px 20px", background: `linear-gradient(180deg, ${COLORS.purpleDark} 0%, transparent 100%)` }}>
+      <div style={{ fontSize: 10, color: COLORS.gold, letterSpacing: 3, fontWeight: 600, marginBottom: 6 }}>OAKLEIGH CRICKET CLUB</div>
+      <h1 style={{ fontSize: 30, fontWeight: 700, color: COLORS.white, lineHeight: 1.15 }}>{title}</h1>
+      {sub && <p style={{ color: COLORS.gray, marginTop: 6, fontSize: 13 }}>{sub}</p>}
+    </div>
   );
 }
 
@@ -123,12 +155,7 @@ function AuthPage() {
         </div>
         <div style={{ display: "flex", background: COLORS.purpleDark, borderRadius: 10, padding: 4, marginBottom: 24, border: `1px solid ${COLORS.purpleMid}` }}>
           {["login", "signup"].map(m => (
-            <button key={m} onClick={() => setMode(m)} style={{
-              flex: 1, padding: "9px", borderRadius: 7, border: "none", cursor: "pointer",
-              background: mode === m ? COLORS.purpleMid : "transparent",
-              color: mode === m ? COLORS.white : COLORS.gray,
-              fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-            }}>{m === "login" ? "Log in" : "Sign up"}</button>
+            <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "9px", borderRadius: 7, border: "none", cursor: "pointer", background: mode === m ? COLORS.purpleMid : "transparent", color: mode === m ? COLORS.white : COLORS.gray, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>{m === "login" ? "Log in" : "Sign up"}</button>
           ))}
         </div>
         {mode === "login" ? <LoginForm /> : <SignupForm />}
@@ -142,7 +169,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const handle = async () => {
     if (!email || !password) { setError("Please fill in all fields."); return; }
     setLoading(true); setError("");
@@ -150,7 +176,6 @@ function LoginForm() {
     if (error) setError("Incorrect email or password.");
     setLoading(false);
   };
-
   return (
     <div style={{ background: COLORS.purpleDark, borderRadius: 14, padding: "24px", border: `1px solid ${COLORS.purpleMid}` }}>
       <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
@@ -170,7 +195,6 @@ function SignupForm() {
   const [teamName, setTeamName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const handle = async () => {
     if (!email || !password || !confirm) { setError("Please fill in all fields."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
@@ -178,12 +202,9 @@ function SignupForm() {
     setLoading(true); setError("");
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) { setError(error.message); setLoading(false); return; }
-    if (teamName && data.user) {
-      await supabase.from("profiles").update({ team_name: teamName, username: email }).eq("id", data.user.id);
-    }
+    if (teamName && data.user) await supabase.from("profiles").update({ team_name: teamName, username: email }).eq("id", data.user.id);
     setLoading(false);
   };
-
   return (
     <div style={{ background: COLORS.purpleDark, borderRadius: 14, padding: "24px", border: `1px solid ${COLORS.purpleMid}` }}>
       <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
@@ -202,11 +223,13 @@ function SignupForm() {
 
 function Nav({ page, setPage, user, profile, onLogout }) {
   const [showMenu, setShowMenu] = useState(false);
+  const isAdmin = user?.id === ADMIN_ID;
   const tabs = [
     { id: "squad", label: "My Squad" },
     { id: "players", label: "Players" },
     { id: "leaderboard", label: "Leaderboard" },
     { id: "howtoplay", label: "How to Play" },
+    ...(isAdmin ? [{ id: "admin", label: "⚙ Admin" }] : []),
   ];
   return (
     <nav style={{ background: COLORS.purpleDark, borderBottom: `2px solid ${COLORS.gold}35`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 24px", boxShadow: "0 4px 20px #0005" }}>
@@ -218,7 +241,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
         </div>
       </div>
       {tabs.map(t => (
-        <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "18px 15px", fontSize: 13, fontWeight: 500, color: page === t.id ? COLORS.gold : COLORS.gray, borderBottom: page === t.id ? `2px solid ${COLORS.gold}` : "2px solid transparent", marginBottom: -2, transition: "color 0.15s" }}>{t.label}</button>
+        <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "18px 15px", fontSize: 13, fontWeight: 500, color: page === t.id ? COLORS.gold : t.id === "admin" ? COLORS.goldLight : COLORS.gray, borderBottom: page === t.id ? `2px solid ${COLORS.gold}` : "2px solid transparent", marginBottom: -2, transition: "color 0.15s" }}>{t.label}</button>
       ))}
       <div style={{ marginLeft: "auto", position: "relative" }}>
         <button onClick={() => setShowMenu(m => !m)} style={{ display: "flex", alignItems: "center", gap: 8, background: COLORS.purpleMid, border: `1px solid ${COLORS.purpleLight}40`, borderRadius: 8, padding: "7px 12px", cursor: "pointer" }}>
@@ -239,21 +262,256 @@ function Nav({ page, setPage, user, profile, onLogout }) {
   );
 }
 
-function Header({ title, sub }) {
-  return (
-    <div style={{ padding: "36px 32px 20px", background: `linear-gradient(180deg, ${COLORS.purpleDark} 0%, transparent 100%)` }}>
-      <div style={{ fontSize: 10, color: COLORS.gold, letterSpacing: 3, fontWeight: 600, marginBottom: 6 }}>OAKLEIGH CRICKET CLUB</div>
-      <h1 style={{ fontSize: 30, fontWeight: 700, color: COLORS.white, lineHeight: 1.15 }}>{title}</h1>
-      {sub && <p style={{ color: COLORS.gray, marginTop: 6, fontSize: 13 }}>{sub}</p>}
+// ─── ADMIN PAGE ────────────────────────────────────────────────────────────────
+
+function AdminPage({ players }) {
+  const [gw, setGw] = useState(ACTIVE_GW);
+  const [scores, setScores] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("success");
+  const [search, setSearch] = useState("");
+  const [existingScores, setExistingScores] = useState({});
+
+  const filtered = players.filter(p => search === "" || p.name.toLowerCase().includes(search.toLowerCase()));
+
+  // Load existing scores for selected gameweek
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("gameweek_scores").select("*").eq("gameweek_id", gw);
+      if (data) {
+        const map = {};
+        data.forEach(r => { map[r.player_id] = r; });
+        setExistingScores(map);
+        setScores({});
+      }
+    };
+    load();
+  }, [gw]);
+
+  const getVal = (playerId, field) => {
+    if (scores[playerId]?.[field] !== undefined) return scores[playerId][field];
+    if (existingScores[playerId]?.[field] !== undefined) return existingScores[playerId][field];
+    return field.startsWith("did_") || field.startsWith("was_") || field.startsWith("five_") || field.startsWith("three_") ? false : 0;
+  };
+
+  const setVal = (playerId, field, value) => {
+    setScores(s => ({ ...s, [playerId]: { ...(s[playerId] || {}), [field]: value } }));
+  };
+
+  const preview = (playerId) => {
+    const s = {
+      runs: getVal(playerId, "runs"),
+      fours: getVal(playerId, "fours"),
+      sixes: getVal(playerId, "sixes"),
+      wickets: getVal(playerId, "wickets"),
+      catches: getVal(playerId, "catches"),
+      run_outs: getVal(playerId, "run_outs"),
+      stumpings: getVal(playerId, "stumpings"),
+      no_balls: getVal(playerId, "no_balls"),
+      wides: getVal(playerId, "wides"),
+      did_bat: getVal(playerId, "did_bat"),
+      was_dismissed: getVal(playerId, "was_dismissed"),
+      five_fer: getVal(playerId, "five_fer"),
+      three_fer: getVal(playerId, "three_fer"),
+    };
+    return calcPoints(s);
+  };
+
+  const saveScores = async () => {
+    setSaving(true); setMsg("");
+    const rows = players.map(p => ({
+      player_id: p.id,
+      gameweek_id: gw,
+      runs: getVal(p.id, "runs"),
+      fours: getVal(p.id, "fours"),
+      sixes: getVal(p.id, "sixes"),
+      wickets: getVal(p.id, "wickets"),
+      catches: getVal(p.id, "catches"),
+      run_outs: getVal(p.id, "run_outs"),
+      stumpings: getVal(p.id, "stumpings"),
+      no_balls: getVal(p.id, "no_balls"),
+      wides: getVal(p.id, "wides"),
+      did_bat: getVal(p.id, "did_bat"),
+      was_dismissed: getVal(p.id, "was_dismissed"),
+      five_fer: getVal(p.id, "five_fer"),
+      three_fer: getVal(p.id, "three_fer"),
+      calculated_pts: calcPoints({
+        runs: getVal(p.id, "runs"), fours: getVal(p.id, "fours"), sixes: getVal(p.id, "sixes"),
+        wickets: getVal(p.id, "wickets"), catches: getVal(p.id, "catches"), run_outs: getVal(p.id, "run_outs"),
+        stumpings: getVal(p.id, "stumpings"), no_balls: getVal(p.id, "no_balls"), wides: getVal(p.id, "wides"),
+        did_bat: getVal(p.id, "did_bat"), was_dismissed: getVal(p.id, "was_dismissed"),
+        five_fer: getVal(p.id, "five_fer"), three_fer: getVal(p.id, "three_fer"),
+      }),
+    }));
+
+    // Upsert — update if exists, insert if not
+    const { error } = await supabase.from("gameweek_scores").upsert(rows, { onConflict: "player_id,gameweek_id" });
+    if (error) {
+      setMsg("Error saving scores: " + error.message); setMsgType("danger");
+    } else {
+      setMsg("Scores saved. Now click Calculate Points to update the leaderboard."); setMsgType("success");
+      const map = {};
+      rows.forEach(r => { map[r.player_id] = r; });
+      setExistingScores(map);
+      setScores({});
+    }
+    setSaving(false);
+  };
+
+  const calculatePoints = async () => {
+    setCalculating(true); setMsg("");
+
+    // Get all squads for this gameweek
+    const { data: squadData } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", gw);
+    if (!squadData || squadData.length === 0) {
+      setMsg("No squads found for this gameweek."); setMsgType("danger");
+      setCalculating(false); return;
+    }
+
+    // Get all scores for this gameweek
+    const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", gw);
+    const scoreMap = {};
+    if (scoreData) scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
+
+    // Group squad entries by user
+    const userSquads = {};
+    squadData.forEach(row => {
+      if (!userSquads[row.user_id]) userSquads[row.user_id] = [];
+      userSquads[row.user_id].push(row);
+    });
+
+    // Calculate total points per user
+    const pointsRows = Object.entries(userSquads).map(([userId, squad]) => {
+      let total = 0;
+      squad.forEach(entry => {
+        let pts = scoreMap[entry.player_id] || 0;
+        if (entry.is_captain) pts = pts * 2;
+        else if (entry.is_vice_captain) pts = pts * 1.5;
+        total += pts;
+      });
+      return { user_id: userId, gameweek_id: gw, raw_pts: total, total_pts: total };
+    });
+
+    // Upsert fantasy points
+    const { error: fpError } = await supabase.from("fantasy_points").upsert(pointsRows, { onConflict: "user_id,gameweek_id" });
+    if (fpError) {
+      setMsg("Error calculating points: " + fpError.message); setMsgType("danger");
+      setCalculating(false); return;
+    }
+
+    // Update total_pts on profiles — sum across all gameweeks
+    for (const { user_id } of pointsRows) {
+      const { data: allPts } = await supabase.from("fantasy_points").select("total_pts").eq("user_id", user_id);
+      const grand = allPts ? allPts.reduce((s, r) => s + (r.total_pts || 0), 0) : 0;
+      await supabase.from("profiles").update({ total_pts: grand }).eq("id", user_id);
+    }
+
+    setMsg(`Points calculated for ${pointsRows.length} managers. Leaderboard updated!`); setMsgType("success");
+    setCalculating(false);
+  };
+
+  const numField = (playerId, field, label, width = 64) => (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <div style={{ fontSize: 9, color: COLORS.gray, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
+      <input
+        type="number" min="0"
+        value={getVal(playerId, field)}
+        onChange={e => setVal(playerId, field, parseInt(e.target.value) || 0)}
+        style={{ width, background: COLORS.purpleDark, border: `1px solid ${COLORS.purpleLight}40`, color: COLORS.white, borderRadius: 6, padding: "5px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
+      />
     </div>
   );
-}
 
-function StatPill({ label, value, accent }) {
+  const boolField = (playerId, field, label) => (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <div style={{ fontSize: 9, color: COLORS.gray, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
+      <button
+        onClick={() => setVal(playerId, field, !getVal(playerId, field))}
+        style={{ width: 40, height: 28, borderRadius: 6, border: `1px solid ${getVal(playerId, field) ? COLORS.success : COLORS.purpleLight}40`, background: getVal(playerId, field) ? COLORS.success + "30" : COLORS.purpleDark, color: getVal(playerId, field) ? COLORS.success : COLORS.gray, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
+      >{getVal(playerId, field) ? "Y" : "N"}</button>
+    </div>
+  );
+
   return (
-    <div style={{ background: COLORS.purpleMid, borderRadius: 10, padding: "12px 16px", border: `1px solid ${(accent || COLORS.gold)}28`, textAlign: "center" }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: accent || COLORS.gold }}>{value}</div>
-      <div style={{ fontSize: 11, color: COLORS.gray, marginTop: 2 }}>{label}</div>
+    <div style={{ padding: "0 32px 48px" }}>
+      <Header title="Admin Panel" sub="Enter match scores · Calculate gameweek points" />
+
+      {/* Gameweek selector + actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: COLORS.gray }}>Gameweek</span>
+          <input type="number" min="1" value={gw} onChange={e => setGw(parseInt(e.target.value) || 1)} style={{ width: 64, background: COLORS.purpleMid, border: `1px solid ${COLORS.purpleLight}40`, color: COLORS.white, borderRadius: 8, padding: "7px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+        </div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: COLORS.purpleMid, border: `1px solid ${COLORS.purpleLight}40`, color: COLORS.white, borderRadius: 8, padding: "7px 12px", fontSize: 13, outline: "none", minWidth: 180 }} />
+        <button onClick={saveScores} disabled={saving} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: saving ? COLORS.purpleMid : COLORS.gold, color: COLORS.purpleDark, fontWeight: 700, fontSize: 13, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save Scores"}</button>
+        <button onClick={calculatePoints} disabled={calculating} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: calculating ? COLORS.purpleMid : COLORS.success, color: COLORS.white, fontWeight: 700, fontSize: 13, cursor: calculating ? "default" : "pointer" }}>{calculating ? "Calculating..." : "Calculate Points"}</button>
+      </div>
+
+      {msg && (
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, fontSize: 13, background: COLORS[msgType] + "20", color: COLORS[msgType], border: `1px solid ${COLORS[msgType]}40` }}>{msg}</div>
+      )}
+
+      {/* Score entry guide */}
+      <div style={{ background: COLORS.purpleMid, borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 12, color: COLORS.gray, lineHeight: 1.8 }}>
+        <span style={{ color: COLORS.gold, fontWeight: 600 }}>How to use: </span>
+        Enter each player's stats from PlayCricket. Tick <span style={{ color: COLORS.success }}>Did Bat</span> if they batted, <span style={{ color: COLORS.success }}>Out</span> if dismissed, <span style={{ color: COLORS.gold }}>3W</span> / <span style={{ color: COLORS.gold }}>5W</span> for hauls. Hit <span style={{ color: COLORS.gold, fontWeight: 600 }}>Save Scores</span> first, then <span style={{ color: COLORS.success, fontWeight: 600 }}>Calculate Points</span> to update the leaderboard.
+      </div>
+
+      {/* Player score rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {filtered.map(p => (
+          <div key={p.id} style={{ background: COLORS.purpleMid, borderRadius: 10, padding: "12px 16px", border: `1px solid ${existingScores[p.id] ? COLORS.success + "30" : "transparent"}` }}>
+            {/* Player name row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.white }}>{p.name}</div>
+                <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
+              </div>
+              <div style={{ background: COLORS.gold + "20", border: `1px solid ${COLORS.gold}40`, borderRadius: 8, padding: "4px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: COLORS.gray }}>PREVIEW</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.gold }}>{preview(p.id)} pts</div>
+              </div>
+              {existingScores[p.id] && <div style={{ fontSize: 10, color: COLORS.success, fontWeight: 600 }}>SAVED</div>}
+            </div>
+
+            {/* Batting stats */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: COLORS.purpleLight, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>BATTING</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                {numField(p.id, "runs", "Runs", 72)}
+                {numField(p.id, "fours", "4s", 56)}
+                {numField(p.id, "sixes", "6s", 56)}
+                {boolField(p.id, "did_bat", "Batted")}
+                {boolField(p.id, "was_dismissed", "Out")}
+              </div>
+            </div>
+
+            {/* Bowling stats */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: COLORS.goldLight, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>BOWLING</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                {numField(p.id, "wickets", "Wkts", 64)}
+                {numField(p.id, "no_balls", "NB", 56)}
+                {numField(p.id, "wides", "Wides", 64)}
+                {boolField(p.id, "three_fer", "3W")}
+                {boolField(p.id, "five_fer", "5W")}
+              </div>
+            </div>
+
+            {/* Fielding stats */}
+            <div>
+              <div style={{ fontSize: 10, color: COLORS.success, fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>FIELDING</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                {numField(p.id, "catches", "Catches", 72)}
+                {numField(p.id, "run_outs", "Run Outs", 72)}
+                {numField(p.id, "stumpings", "Stmpgs", 72)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -271,19 +529,12 @@ function SquadPage({ players, userId }) {
   const [saveMsg, setSaveMsg] = useState("");
   const [loadingSquad, setLoadingSquad] = useState(true);
 
-  // Load saved squad on mount
   useEffect(() => {
-    const loadSquad = async () => {
-      const { data } = await supabase
-        .from("squads")
-        .select("player_id, is_captain, is_vice_captain")
-        .eq("user_id", userId)
-        .eq("gameweek_id", ACTIVE_GW);
-
+    const load = async () => {
+      const { data } = await supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
       if (data && data.length > 0) {
-        const savedIds = data.map(r => r.player_id);
-        const savedPlayers = players.filter(p => savedIds.includes(p.id));
-        setSquad(savedPlayers);
+        const saved = players.filter(p => data.map(r => r.player_id).includes(p.id));
+        setSquad(saved);
         const cap = data.find(r => r.is_captain);
         const vc = data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
@@ -291,7 +542,7 @@ function SquadPage({ players, userId }) {
       }
       setLoadingSquad(false);
     };
-    if (players.length > 0) loadSquad();
+    if (players.length > 0) load();
   }, [players, userId]);
 
   const spent = squad.reduce((s, p) => s + p.price, 0);
@@ -329,35 +580,15 @@ function SquadPage({ players, userId }) {
     if (squad.length !== SQUAD_SIZE) { setSaveMsg(`You need ${SQUAD_SIZE} players. Currently have ${squad.length}.`); return; }
     if (!captain) { setSaveMsg("Please pick a captain before saving."); return; }
     if (!viceCaptain) { setSaveMsg("Please pick a vice captain before saving."); return; }
-
     setSaving(true); setSaveMsg("");
-
-    // Delete existing squad for this gameweek then re-insert
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
-
-    const rows = squad.map(p => ({
-      user_id: userId,
-      player_id: p.id,
-      gameweek_id: ACTIVE_GW,
-      is_captain: p.id === captain,
-      is_vice_captain: p.id === viceCaptain,
-    }));
-
+    const rows = squad.map(p => ({ user_id: userId, player_id: p.id, gameweek_id: ACTIVE_GW, is_captain: p.id === captain, is_vice_captain: p.id === viceCaptain }));
     const { error } = await supabase.from("squads").insert(rows);
-
-    if (error) {
-      setSaveMsg("Something went wrong saving your squad. Try again.");
-    } else {
-      setSaveMsg("Squad saved successfully!");
-    }
+    setSaveMsg(error ? "Something went wrong. Try again." : "Squad saved successfully!");
     setSaving(false);
   };
 
-  const pickerList = players.filter(p =>
-    (filterRole === "ALL" || p.role === filterRole) &&
-    (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))
-  );
-
+  const pickerList = players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase())));
   const grouped = { BAT: [], BOWL: [], AR: [], WK: [] };
   squad.forEach(p => grouped[p.role].push(p));
 
@@ -366,7 +597,6 @@ function SquadPage({ players, userId }) {
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="My Squad" sub={`Gameweek ${ACTIVE_GW} · Deadline: Friday 11:59 PM`} />
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
         <StatPill label="Budget remaining" value={`$${remaining}`} accent={remaining < 80 ? COLORS.danger : COLORS.gold} />
         <StatPill label="Players selected" value={`${squad.length} / ${SQUAD_SIZE}`} />
@@ -378,21 +608,12 @@ function SquadPage({ players, userId }) {
         <div key={role} style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{ height: 1, flex: 1, background: COLORS.purpleMid }} />
-            <span style={{ fontSize: 10, color: ROLE_COLORS[role], fontWeight: 700, letterSpacing: 2 }}>
-              {ROLE_LABELS[role].toUpperCase()}S · {players.length}/{ROLE_LIMITS[role]}
-            </span>
+            <span style={{ fontSize: 10, color: ROLE_COLORS[role], fontWeight: 700, letterSpacing: 2 }}>{ROLE_LABELS[role].toUpperCase()}S · {players.length}/{ROLE_LIMITS[role]}</span>
             <div style={{ height: 1, flex: 1, background: COLORS.purpleMid }} />
           </div>
-          {players.length === 0 && (
-            <div style={{ textAlign: "center", color: COLORS.gray, fontSize: 13, padding: "10px 0", opacity: 0.5 }}>No {ROLE_LABELS[role].toLowerCase()}s added yet</div>
-          )}
+          {players.length === 0 && <div style={{ textAlign: "center", color: COLORS.gray, fontSize: 13, padding: "10px 0", opacity: 0.5 }}>No {ROLE_LABELS[role].toLowerCase()}s added yet</div>}
           {players.map(p => (
-            <div key={p.id} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-              background: COLORS.purpleMid, borderRadius: 10, marginBottom: 6,
-              border: captain === p.id ? `1px solid ${COLORS.gold}` : viceCaptain === p.id ? `1px solid ${COLORS.goldLight}60` : "1px solid transparent",
-              transition: "border-color 0.15s",
-            }}>
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: COLORS.purpleMid, borderRadius: 10, marginBottom: 6, border: captain === p.id ? `1px solid ${COLORS.gold}` : viceCaptain === p.id ? `1px solid ${COLORS.goldLight}60` : "1px solid transparent", transition: "border-color 0.15s" }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.white, display: "flex", alignItems: "center", gap: 6 }}>
                   {p.name}
@@ -414,53 +635,27 @@ function SquadPage({ players, userId }) {
       ))}
 
       <button onClick={() => setShowPicker(true)} style={{ display: "block", width: "100%", marginTop: 14, padding: "14px", background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.goldDark})`, color: COLORS.purpleDark, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+ Add Players</button>
+      <button onClick={saveSquad} disabled={saving} style={{ display: "block", width: "100%", marginTop: 10, padding: "14px", background: saving ? COLORS.purpleMid : COLORS.success + "DD", color: COLORS.white, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+      {saveMsg && <div style={{ marginTop: 10, padding: "10px 16px", borderRadius: 8, fontSize: 13, background: saveMsg.includes("successfully") ? COLORS.success + "20" : COLORS.danger + "20", color: saveMsg.includes("successfully") ? COLORS.success : COLORS.danger, border: `1px solid ${saveMsg.includes("successfully") ? COLORS.success : COLORS.danger}40` }}>{saveMsg}</div>}
 
-      {/* Save squad button */}
-      <button onClick={saveSquad} disabled={saving} style={{
-        display: "block", width: "100%", marginTop: 10, padding: "14px",
-        background: saving ? COLORS.purpleMid : COLORS.success + "DD",
-        color: COLORS.white, border: "none", borderRadius: 10,
-        cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700,
-      }}>{saving ? "Saving..." : "Save Squad"}</button>
-
-      {saveMsg && (
-        <div style={{
-          marginTop: 10, padding: "10px 16px", borderRadius: 8, fontSize: 13,
-          background: saveMsg.includes("successfully") ? COLORS.success + "20" : COLORS.danger + "20",
-          color: saveMsg.includes("successfully") ? COLORS.success : COLORS.danger,
-          border: `1px solid ${saveMsg.includes("successfully") ? COLORS.success : COLORS.danger}40`,
-        }}>{saveMsg}</div>
-      )}
-
-      {/* Player picker modal */}
       {showPicker && (
         <div style={{ position: "fixed", inset: 0, background: "#000A", zIndex: 200, display: "flex", alignItems: "stretch", justifyContent: "center" }} onClick={() => setShowPicker(false)}>
           <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", background: COLORS.purpleDark, border: `1px solid ${COLORS.gold}50`, borderRadius: 40, padding: "8px 20px", display: "flex", alignItems: "center", gap: 18, zIndex: 210, boxShadow: "0 4px 24px #0008" }} onClick={e => e.stopPropagation()}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: COLORS.gray, letterSpacing: 0.5 }}>BUDGET LEFT</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: remaining < 80 ? COLORS.danger : COLORS.gold, lineHeight: 1.1 }}>${remaining}</div>
-            </div>
+            <div style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: COLORS.gray }}>BUDGET LEFT</div><div style={{ fontSize: 18, fontWeight: 700, color: remaining < 80 ? COLORS.danger : COLORS.gold }}>${remaining}</div></div>
             <div style={{ width: 1, height: 32, background: COLORS.purpleMid }} />
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: COLORS.gray, letterSpacing: 0.5 }}>PLAYERS</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.white, lineHeight: 1.1 }}>{squad.length}<span style={{ fontSize: 12, color: COLORS.gray, fontWeight: 400 }}>/{SQUAD_SIZE}</span></div>
-            </div>
+            <div style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: COLORS.gray }}>PLAYERS</div><div style={{ fontSize: 18, fontWeight: 700, color: COLORS.white }}>{squad.length}<span style={{ fontSize: 12, color: COLORS.gray }}>/{SQUAD_SIZE}</span></div></div>
             <div style={{ width: 1, height: 32, background: COLORS.purpleMid }} />
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: COLORS.gray, letterSpacing: 0.5 }}>MARQUEE</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: marqueeCount >= MAX_MARQUEE ? COLORS.danger : COLORS.success, lineHeight: 1.1 }}>{marqueeCount}<span style={{ fontSize: 12, color: COLORS.gray, fontWeight: 400 }}>/{MAX_MARQUEE}</span></div>
-            </div>
+            <div style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: COLORS.gray }}>MARQUEE</div><div style={{ fontSize: 18, fontWeight: 700, color: marqueeCount >= MAX_MARQUEE ? COLORS.danger : COLORS.success }}>{marqueeCount}<span style={{ fontSize: 12, color: COLORS.gray }}>/{MAX_MARQUEE}</span></div></div>
           </div>
 
           <div style={{ display: "flex", width: "100%", maxWidth: 900, marginTop: 64, overflow: "hidden" }} onClick={e => e.stopPropagation()}>
-            {/* Sidebar */}
             <div style={{ width: 240, background: COLORS.purpleDark, borderRight: `1px solid ${COLORS.purpleMid}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
               <div style={{ padding: "16px 14px 10px", borderBottom: `1px solid ${COLORS.purpleMid}` }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.gold, letterSpacing: 1 }}>YOUR SQUAD</div>
                 <div style={{ fontSize: 11, color: COLORS.gray, marginTop: 2 }}>{squad.length} of {SQUAD_SIZE} selected</div>
               </div>
               <div style={{ overflowY: "auto", flex: 1, padding: "8px 10px 16px" }}>
-                {squad.length === 0 && <div style={{ textAlign: "center", color: COLORS.gray, fontSize: 12, padding: "24px 8px", lineHeight: 1.6, opacity: 0.7 }}>Add players from the list to build your squad</div>}
+                {squad.length === 0 && <div style={{ textAlign: "center", color: COLORS.gray, fontSize: 12, padding: "24px 8px", lineHeight: 1.6, opacity: 0.7 }}>Add players from the list</div>}
                 {Object.entries({ BAT: [], BOWL: [], AR: [], WK: [] }).map(([role]) => {
                   const rp = squad.filter(p => p.role === role);
                   if (rp.length === 0) return null;
@@ -485,7 +680,6 @@ function SquadPage({ players, userId }) {
               </div>
             </div>
 
-            {/* Player list */}
             <div style={{ flex: 1, background: COLORS.purpleDark, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${COLORS.purpleMid}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -539,13 +733,7 @@ function PlayersPage({ players }) {
   const [sort, setSort] = useState("price");
   const [filterRole, setFilterRole] = useState("ALL");
   const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => players
-    .filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase())))
-    .sort((a, b) => b[sort] - a[sort]),
-    [players, sort, filterRole, search]
-  );
-
+  const filtered = useMemo(() => players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))).sort((a, b) => b[sort] - a[sort]), [players, sort, filterRole, search]);
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="Player Database" sub={`${players.length} players · Season 2025–26`} />
@@ -565,10 +753,7 @@ function PlayersPage({ players }) {
           <span>PLAYER</span><span>PRICE</span><span>SEASON PTS</span><span>MP</span>
         </div>
         {filtered.map((p, i) => (
-          <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 60px", padding: "11px 16px", borderBottom: i < filtered.length - 1 ? `1px solid ${COLORS.purpleDark}` : "none", alignItems: "center", transition: "background 0.12s" }}
-            onMouseEnter={e => e.currentTarget.style.background = COLORS.purpleDark + "90"}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-          >
+          <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 60px", padding: "11px 16px", borderBottom: i < filtered.length - 1 ? `1px solid ${COLORS.purpleDark}` : "none", alignItems: "center", transition: "background 0.12s" }} onMouseEnter={e => e.currentTarget.style.background = COLORS.purpleDark + "90"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.white, display: "flex", alignItems: "center", gap: 6 }}>
                 {p.name}
@@ -591,7 +776,6 @@ function PlayersPage({ players }) {
 function LeaderboardPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const fetch = async () => {
       const { data } = await supabase.from("profiles").select("id, team_name, username, total_pts").order("total_pts", { ascending: false }).limit(20);
@@ -600,7 +784,6 @@ function LeaderboardPage() {
     };
     fetch();
   }, []);
-
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="Leaderboard" sub="Season 2025–26" />
@@ -686,13 +869,11 @@ export default function App() {
       if (session) loadAppData(session.user.id);
       else setLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) loadAppData(session.user.id);
       else { setPlayers([]); setProfile(null); setLoading(false); }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -709,24 +890,11 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
-    setPlayers([]);
+    setSession(null); setProfile(null); setPlayers([]);
   };
 
-  if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#241650" }}>
-      <style>{globalStyles}</style>
-      <Spinner label="Loading OCC Fantasy..." />
-    </div>
-  );
-
-  if (!session) return (
-    <>
-      <style>{globalStyles}</style>
-      <AuthPage />
-    </>
-  );
+  if (loading) return <div style={{ minHeight: "100vh", background: "#241650" }}><style>{globalStyles}</style><Spinner label="Loading OCC Fantasy..." /></div>;
+  if (!session) return <><style>{globalStyles}</style><AuthPage /></>;
 
   return (
     <div style={{ minHeight: "100vh", background: "#241650" }}>
@@ -736,6 +904,7 @@ export default function App() {
       {page === "players" && <PlayersPage players={players} />}
       {page === "leaderboard" && <LeaderboardPage />}
       {page === "howtoplay" && <HowToPlayPage />}
+      {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} />}
     </div>
   );
 }
