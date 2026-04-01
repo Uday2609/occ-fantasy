@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { supabase } from "./supabase";
 
 const COLORS = {
   purple: "#6B4EAA",
@@ -44,61 +45,6 @@ const RULES = [
   { title: "PlayCricket", desc: "Scores pulled from PlayCricket after each round, updated by Sunday." },
 ];
 
-const PLAYERS = [
-  { id: 1,  name: "Anthony Howes",           role: "AR",   price: 175, pts: 318, mp: 17 },
-  { id: 2,  name: "Matt Stamps",             role: "BOWL", price: 175, pts: 304, mp: 17 },
-  { id: 3,  name: "Alex Jones",              role: "BOWL", price: 105, pts: 289, mp: 12 },
-  { id: 4,  name: "Kamesh Nirmal",           role: "WK",   price: 100, pts: 312, mp: 15 },
-  { id: 5,  name: "Zayaan Arbab",            role: "BAT",  price: 85,  pts: 342, mp: 12 },
-  { id: 6,  name: "Niyam Shah",              role: "BAT",  price: 75,  pts: 232, mp: 14 },
-  { id: 7,  name: "Aayush Pathania",         role: "AR",   price: 105, pts: 271, mp: 15 },
-  { id: 8,  name: "Jaegar Sagoo",            role: "BAT",  price: 80,  pts: 287, mp: 18 },
-  { id: 9,  name: "Matt Tyson",              role: "BOWL", price: 80,  pts: 278, mp: 18 },
-  { id: 10, name: "Kumbu Jayasundera",       role: "BOWL", price: 70,  pts: 261, mp: 15 },
-  { id: 11, name: "Ben Perry",               role: "BAT",  price: 70,  pts: 254, mp: 11 },
-  { id: 12, name: "Bhanuka Samarakkody",     role: "WK",   price: 70,  pts: 263, mp: 17 },
-  { id: 13, name: "Brendan Grace",           role: "BAT",  price: 70,  pts: 249, mp: 16 },
-  { id: 14, name: "Nikhil Singh",            role: "BAT",  price: 65,  pts: 228, mp: 11 },
-  { id: 15, name: "Archer Johnson",          role: "BAT",  price: 65,  pts: 221, mp: 15 },
-  { id: 16, name: "Matt Grace",              role: "BOWL", price: 65,  pts: 243, mp: 16 },
-  { id: 17, name: "Matt Farthing",           role: "BAT",  price: 60,  pts: 198, mp: 16 },
-  { id: 18, name: "Craig Johnson",           role: "AR",   price: 60,  pts: 211, mp: 14 },
-  { id: 19, name: "Sam Briggs",              role: "BOWL", price: 60,  pts: 207, mp: 18 },
-  { id: 20, name: "Hemanth Condapatti-Ravi", role: "BAT",  price: 60,  pts: 194, mp: 15 },
-  { id: 21, name: "Aiden Boby",              role: "AR",   price: 60,  pts: 0,   mp: 0  },
-  { id: 22, name: "Sagar Sareen",            role: "WK",   price: 60,  pts: 187, mp: 13 },
-  { id: 23, name: "Manish Kingar",           role: "AR",   price: 60,  pts: 201, mp: 16 },
-  { id: 24, name: "Max Getley",              role: "BOWL", price: 60,  pts: 178, mp: 15 },
-  { id: 25, name: "Raf Parton",              role: "BAT",  price: 50,  pts: 171, mp: 16 },
-  { id: 26, name: "Aksh Sammi",              role: "BAT",  price: 50,  pts: 163, mp: 11 },
-  { id: 27, name: "Cameron Chapple",         role: "BAT",  price: 50,  pts: 158, mp: 11 },
-  { id: 28, name: "Rithvik Rao",             role: "BAT",  price: 50,  pts: 167, mp: 14 },
-  { id: 29, name: "James Benn",              role: "BAT",  price: 50,  pts: 152, mp: 17 },
-  { id: 30, name: "Matt Girolami",           role: "WK",   price: 50,  pts: 148, mp: 14 },
-  { id: 31, name: "Josh Kerr",               role: "BOWL", price: 45,  pts: 143, mp: 15 },
-  { id: 32, name: "Tom Ison",                role: "AR",   price: 45,  pts: 156, mp: 14 },
-  { id: 33, name: "Harry Cashman",           role: "AR",   price: 45,  pts: 149, mp: 13 },
-  { id: 34, name: "Samuel Duckett",          role: "BOWL", price: 45,  pts: 131, mp: 14 },
-  { id: 35, name: "Ryan Chapple",            role: "BAT",  price: 45,  pts: 138, mp: 13 },
-  { id: 36, name: "Jack Allan",              role: "BOWL", price: 40,  pts: 122, mp: 10 },
-  { id: 37, name: "Uday Joshi",              role: "BAT",  price: 40,  pts: 118, mp: 10 },
-  { id: 38, name: "Noah O Neill",            role: "BOWL", price: 40,  pts: 119, mp: 9  },
-  { id: 39, name: "Udit Rawal",              role: "BOWL", price: 40,  pts: 124, mp: 11 },
-  { id: 40, name: "Ben Salmon",              role: "AR",   price: 40,  pts: 127, mp: 8  },
-  { id: 41, name: "Geoff Latham",            role: "AR",   price: 30,  pts: 109, mp: 16 },
-  { id: 42, name: "Thomas Miles",            role: "AR",   price: 30,  pts: 98,  mp: 9  },
-  { id: 43, name: "Brodie Grace",            role: "BOWL", price: 30,  pts: 94,  mp: 15 },
-  { id: 44, name: "Michael Splatt",          role: "BOWL", price: 30,  pts: 0,   mp: 0  },
-  { id: 45, name: "James Duckett",           role: "AR",   price: 35,  pts: 101, mp: 4  },
-  { id: 46, name: "Inderjot Singh",          role: "BAT",  price: 35,  pts: 112, mp: 13 },
-  { id: 47, name: "Kanan Budhiraja",         role: "BOWL", price: 35,  pts: 107, mp: 8  },
-  { id: 48, name: "Nema Dimdung",            role: "BAT",  price: 35,  pts: 0,   mp: 0  },
-  { id: 49, name: "Zach Van Der Nest",       role: "BOWL", price: 30,  pts: 91,  mp: 12 },
-  { id: 50, name: "Ashwin Ravindran",        role: "WK",   price: 25,  pts: 83,  mp: 13 },
-  { id: 51, name: "Pierce Kidson-Purry",     role: "BAT",  price: 20,  pts: 72,  mp: 9  },
-  { id: 52, name: "Harry D'Rozario",         role: "AR",   price: 20,  pts: 61,  mp: 12 },
-];
-
 const LEADERBOARD = [
   { rank: 1,  name: "Kamesh N.",   pts: 1842, gw: 124, team: "Nirmal's Eleven"  },
   { rank: 2,  name: "Anthony H.",  pts: 1791, gw: 118, team: "Howes XI"          },
@@ -129,7 +75,34 @@ const globalStyles = `
   ::-webkit-scrollbar-track{background:#3D2870}
   ::-webkit-scrollbar-thumb{background:#8B6FCC;border-radius:3px}
   input::placeholder{color:#9A90A8}
+  @keyframes spin{to{transform:rotate(360deg)}}
 `;
+
+function Spinner() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 16 }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: "50%",
+        border: `3px solid ${COLORS.purpleMid}`,
+        borderTop: `3px solid ${COLORS.gold}`,
+        animation: "spin 0.8s linear infinite",
+      }} />
+      <div style={{ fontSize: 13, color: COLORS.gray }}>Loading players...</div>
+    </div>
+  );
+}
+
+function ErrorMsg({ message, onRetry }) {
+  return (
+    <div style={{ textAlign: "center", padding: "60px 32px" }}>
+      <div style={{ fontSize: 14, color: COLORS.danger, marginBottom: 12 }}>{message}</div>
+      <button onClick={onRetry} style={{
+        padding: "8px 20px", borderRadius: 8, border: `1px solid ${COLORS.gold}50`,
+        background: COLORS.gold + "20", color: COLORS.gold, cursor: "pointer", fontSize: 13, fontWeight: 600,
+      }}>Try again</button>
+    </div>
+  );
+}
 
 function RoleBadge({ role }) {
   const c = ROLE_COLORS[role];
@@ -201,7 +174,7 @@ function StatPill({ label, value, accent }) {
   );
 }
 
-function SquadPage() {
+function SquadPage({ players }) {
   const [squad, setSquad] = useState([]);
   const [captain, setCaptain] = useState(null);
   const [viceCaptain, setViceCaptain] = useState(null);
@@ -212,14 +185,14 @@ function SquadPage() {
   const spent = squad.reduce((s, p) => s + p.price, 0);
   const remaining = BUDGET - spent;
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
-  const marqueeCount = squad.filter(p => p.price >= MARQUEE_PRICE).length;
+  const marqueeCount = squad.filter(p => p.is_marquee).length;
 
   const canAdd = (p) => {
     if (squad.find(x => x.id === p.id)) return false;
     if (squad.length >= SQUAD_SIZE) return false;
     if (remaining < p.price) return false;
     if ((roleCounts[p.role] || 0) >= ROLE_LIMITS[p.role]) return false;
-    if (p.price >= MARQUEE_PRICE && marqueeCount >= MAX_MARQUEE) return false;
+    if (p.is_marquee && marqueeCount >= MAX_MARQUEE) return false;
     return true;
   };
 
@@ -240,7 +213,7 @@ function SquadPage() {
     setViceCaptain(id);
   };
 
-  const pickerList = PLAYERS.filter(p =>
+  const pickerList = players.filter(p =>
     (filterRole === "ALL" || p.role === filterRole) &&
     (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))
   );
@@ -250,7 +223,7 @@ function SquadPage() {
 
   return (
     <div style={{ padding: "0 32px 48px" }}>
-      <Header title="My Squad" sub="Gameweek 14 · Deadline: Friday 11:59 PM" />
+      <Header title="My Squad" sub="Gameweek 1 · Deadline: Friday 11:59 PM" />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
         <StatPill label="Budget remaining" value={`$${remaining}`} accent={remaining < 80 ? COLORS.danger : COLORS.gold} />
@@ -394,7 +367,7 @@ function SquadPage() {
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           padding: "7px 8px", borderRadius: 7, marginBottom: 3,
                           background: COLORS.purpleMid,
-                          border: `1px solid ${p.price >= MARQUEE_PRICE ? COLORS.gold + "40" : "transparent"}`,
+                          border: `1px solid ${p.is_marquee ? COLORS.gold + "40" : "transparent"}`,
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
@@ -468,7 +441,7 @@ function SquadPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.white, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           {p.name}
-                          {p.price >= MARQUEE_PRICE && (
+                          {p.is_marquee && (
                             <span style={{ background: COLORS.gold + "25", color: COLORS.gold, border: `1px solid ${COLORS.gold}50`, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>MARQUEE</span>
                           )}
                         </div>
@@ -506,23 +479,23 @@ function SquadPage() {
   );
 }
 
-function PlayersPage() {
+function PlayersPage({ players }) {
   const [sort, setSort] = useState("price");
   const [filterRole, setFilterRole] = useState("ALL");
   const [search, setSearch] = useState("");
 
-  const filtered = useMemo(() => PLAYERS
+  const filtered = useMemo(() => players
     .filter(p =>
       (filterRole === "ALL" || p.role === filterRole) &&
       (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))
     )
     .sort((a, b) => b[sort] - a[sort]),
-    [sort, filterRole, search]
+    [players, sort, filterRole, search]
   );
 
   return (
     <div style={{ padding: "0 32px 48px" }}>
-      <Header title="Player Database" sub={`${PLAYERS.length} players · Season 2024–25`} />
+      <Header title="Player Database" sub={`${players.length} players · Season 2025–26`} />
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{
@@ -572,7 +545,7 @@ function PlayersPage() {
             <div>
               <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.white, display: "flex", alignItems: "center", gap: 6 }}>
                 {p.name}
-                {p.price >= MARQUEE_PRICE && (
+                {p.is_marquee && (
                   <span style={{ background: COLORS.gold + "25", color: COLORS.gold, border: `1px solid ${COLORS.gold}50`, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>MARQUEE</span>
                 )}
               </div>
@@ -591,7 +564,7 @@ function PlayersPage() {
 function LeaderboardPage() {
   return (
     <div style={{ padding: "0 32px 48px" }}>
-      <Header title="Leaderboard" sub="Gameweek 14 · Season 2024–25" />
+      <Header title="Leaderboard" sub="Gameweek 1 · Season 2025–26" />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
         {LEADERBOARD.slice(0, 3).map((p, i) => (
@@ -606,7 +579,7 @@ function LeaderboardPage() {
             <div style={{ fontSize: 11, color: COLORS.gray, marginBottom: 10 }}>{p.team}</div>
             <div style={{ fontSize: 26, fontWeight: 700, color: i === 0 ? COLORS.gold : COLORS.goldLight }}>{p.pts}</div>
             <div style={{ fontSize: 11, color: COLORS.gray }}>total points</div>
-            <div style={{ fontSize: 12, color: COLORS.success, marginTop: 6 }}>GW14: +{p.gw}</div>
+            <div style={{ fontSize: 12, color: COLORS.success, marginTop: 6 }}>GW1: +{p.gw}</div>
           </div>
         ))}
       </div>
@@ -687,14 +660,45 @@ function HowToPlayPage() {
 
 export default function App() {
   const [page, setPage] = useState("squad");
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchPlayers = async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from("players")
+      .select("*")
+      .order("price", { ascending: false });
+    if (error) {
+      setError("Couldn't load players. Check your connection and try again.");
+    } else {
+      setPlayers(data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchPlayers();
+  }, []);
+
   return (
     <div style={{ minHeight: "100vh", background: "#241650" }}>
       <style>{globalStyles}</style>
       <Nav page={page} setPage={setPage} />
-      {page === "squad" && <SquadPage />}
-      {page === "players" && <PlayersPage />}
-      {page === "leaderboard" && <LeaderboardPage />}
-      {page === "howtoplay" && <HowToPlayPage />}
+      {loading ? (
+        <Spinner />
+      ) : error ? (
+        <ErrorMsg message={error} onRetry={fetchPlayers} />
+      ) : (
+        <>
+          {page === "squad" && <SquadPage players={players} />}
+          {page === "players" && <PlayersPage players={players} />}
+          {page === "leaderboard" && <LeaderboardPage />}
+          {page === "howtoplay" && <HowToPlayPage />}
+        </>
+      )}
     </div>
   );
 }
