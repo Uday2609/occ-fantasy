@@ -756,7 +756,7 @@ function SquadPage({ players, userId }) {
           </div>
         </div>
       )}
-      </div>{/* end two-column grid */}
+      </div>
     </div>
   );
 }
