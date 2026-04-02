@@ -76,7 +76,7 @@ const globalStyles = `
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 `;
 
-// ─── POINTS CALCULATOR ─────────────────────────────────────────────────────────
+// --- POINTS CALCULATOR -----------------------------------------------------------
 
 function calcPoints(s) {
   let pts = 0;
@@ -97,7 +97,7 @@ function calcPoints(s) {
   return Math.max(pts, 0);
 }
 
-// ─── SHARED COMPONENTS ─────────────────────────────────────────────────────────
+// --- SHARED COMPONENTS -----------------------------------------------------------
 
 function Spinner({ label = "Loading..." }) {
   return (
@@ -142,7 +142,7 @@ function Header({ title, sub }) {
   );
 }
 
-// ─── COUNTDOWN TIMER ───────────────────────────────────────────────────────────
+// --- COUNTDOWN TIMER -------------------------------------------------------------
 
 function Countdown({ deadline }) {
   const [time, setTime] = useState({});
@@ -188,7 +188,7 @@ function Countdown({ deadline }) {
   );
 }
 
-// ─── AUTH ──────────────────────────────────────────────────────────────────────
+// --- AUTH ------------------------------------------------------------------------
 
 function AuthPage() {
   const [mode, setMode] = useState("login");
@@ -268,7 +268,7 @@ function SignupForm() {
   );
 }
 
-// ─── NAV ───────────────────────────────────────────────────────────────────────
+// --- NAV -------------------------------------------------------------------------
 
 function Nav({ page, setPage, user, profile, onLogout }) {
   const [showMenu, setShowMenu] = useState(false);
@@ -312,7 +312,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
   );
 }
 
-// ─── ACCOUNT PAGE ──────────────────────────────────────────────────────────────
+// --- ACCOUNT PAGE ----------------------------------------------------------------
 
 function AccountPage({ user, profile, onLogout }) {
   const [teamName, setTeamName] = useState(profile?.team_name || "");
@@ -386,7 +386,7 @@ function AccountPage({ user, profile, onLogout }) {
   );
 }
 
-// ─── MEMBERS PAGE ──────────────────────────────────────────────────────────────
+// --- MEMBERS PAGE ----------------------------------------------------------------
 
 function MembersPage() {
   const [members, setMembers] = useState([]);
@@ -435,7 +435,7 @@ function MembersPage() {
   );
 }
 
-// ─── SQUAD PAGE ────────────────────────────────────────────────────────────────
+// --- SQUAD PAGE ------------------------------------------------------------------
 
 function SquadPage({ players, userId }) {
   const [squad, setSquad] = useState([]);
@@ -761,7 +761,7 @@ function SquadPage({ players, userId }) {
   );
 }
 
-// ─── PLAYERS PAGE ──────────────────────────────────────────────────────────────
+// --- PLAYERS PAGE ----------------------------------------------------------------
 
 function PlayersPage({ players }) {
   const [sort, setSort] = useState("price");
@@ -805,7 +805,7 @@ function PlayersPage({ players }) {
   );
 }
 
-// ─── LEADERBOARD PAGE ──────────────────────────────────────────────────────────
+// --- LEADERBOARD PAGE ------------------------------------------------------------
 
 function LeaderboardPage() {
   const [entries, setEntries] = useState([]);
@@ -888,7 +888,7 @@ function LeaderboardPage() {
   );
 }
 
-// ─── HOW TO PLAY ───────────────────────────────────────────────────────────────
+// --- HOW TO PLAY -----------------------------------------------------------------
 
 function HowToPlayPage() {
   return (
@@ -920,7 +920,7 @@ function HowToPlayPage() {
   );
 }
 
-// ─── ADMIN PAGE ────────────────────────────────────────────────────────────────
+// --- ADMIN PAGE ------------------------------------------------------------------
 
 function AdminPage({ players }) {
   const [gw, setGw] = useState(ACTIVE_GW);
@@ -1079,7 +1079,7 @@ function AdminPage({ players }) {
   );
 }
 
-// ─── APP ROOT ──────────────────────────────────────────────────────────────────
+// --- APP ROOT --------------------------------------------------------------------
 
 export default function App() {
   const [page, setPage] = useState("squad");
