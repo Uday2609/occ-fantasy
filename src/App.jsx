@@ -277,7 +277,6 @@ function Nav({ page, setPage, user, profile, onLogout }) {
     { id: "squad", label: "My Squad" },
     { id: "players", label: "Players" },
     { id: "leaderboard", label: "Leaderboard" },
-    { id: "members", label: "Members" },
     { id: "howtoplay", label: "How to Play" },
     ...(isAdmin ? [{ id: "admin", label: "⚙ Admin" }] : []),
   ];
@@ -524,8 +523,9 @@ function SquadPage({ players, userId }) {
   if (loadingSquad) return <Spinner label="Loading your squad..." />;
 
   return (
-    <div style={{ padding: "0 32px 48px" }}>
-      <div style={{ padding: "32px 0 18px", borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ padding: "0 0 48px" }}>
+      {/* Header */}
+      <div style={{ padding: "32px 32px 18px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ fontSize: 10, color: C.crimson, letterSpacing: 3, fontWeight: 600, marginBottom: 5 }}>OAKLEIGH CRICKET CLUB</div>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: C.white, lineHeight: 1.2, marginBottom: 10 }}>My Squad</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -544,58 +544,128 @@ function SquadPage({ players, userId }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, margin: "20px 0" }}>
+      {/* Stat pills */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "16px 32px" }}>
         <StatCard label="BUDGET LEFT" value={`$${remaining}`} accent={remaining < 80 ? C.danger : C.white} />
         <StatCard label="PLAYERS" value={`${squad.length}/${SQUAD_SIZE}`} />
         <StatCard label="MARQUEE" value={`${marqueeCount}/${MAX_MARQUEE}`} accent={marqueeCount >= MAX_MARQUEE ? C.danger : C.success} />
         <StatCard label="TRANSFERS" value={`${TRANSFERS_PER_GW}/${TRANSFERS_PER_GW}`} accent={transfersOpen ? C.success : C.gray} />
       </div>
 
-      {/* Transfer window locked message */}
-      {!transfersOpen && hasSquad && (
-        <div style={{ background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 13, color: C.gold, lineHeight: 1.6 }}>
-          The transfer window is currently closed. Check back after Thursday's team selection when the admin opens transfers.
-        </div>
-      )}
+      {/* Two-column layout */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 0, padding: "0 32px" }}>
 
-      {Object.entries(grouped).map(([role, rPlayers]) => (
-        <div key={role} style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ height: 1, flex: 1, background: C.border }} />
-            <span style={{ fontSize: 9, color: ROLE_COLORS[role], fontWeight: 700, letterSpacing: 2 }}>{ROLE_LABELS[role].toUpperCase()}S · {rPlayers.length}/{ROLE_LIMITS[role]}</span>
-            <div style={{ height: 1, flex: 1, background: C.border }} />
-          </div>
-          {rPlayers.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12, padding: "8px 0", opacity: 0.5 }}>No {ROLE_LABELS[role].toLowerCase()}s added yet</div>}
-          {rPlayers.map(p => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.bgCard, borderRadius: 10, marginBottom: 5, border: captain === p.id ? `1px solid ${C.crimson}` : viceCaptain === p.id ? `1px solid ${C.crimson}50` : `1px solid ${C.border}`, transition: "border-color 0.15s" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.white, display: "flex", alignItems: "center", gap: 6 }}>
-                  {p.name}
-                  {captain === p.id && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>C</span>}
-                  {viceCaptain === p.id && <span style={{ background: C.crimson + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>VC</span>}
+        {/* LEFT — squad list */}
+        <div style={{ paddingRight: 24, borderRight: `1px solid ${C.border}` }}>
+          {Object.entries(grouped).map(([role, rPlayers]) => (
+            <div key={role} style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <div style={{ height: 1, flex: 1, background: C.border }} />
+                <span style={{ fontSize: 9, color: ROLE_COLORS[role], fontWeight: 700, letterSpacing: 2 }}>{ROLE_LABELS[role].toUpperCase()}S · {rPlayers.length}/{ROLE_LIMITS[role]}</span>
+                <div style={{ height: 1, flex: 1, background: C.border }} />
+              </div>
+              {rPlayers.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12, padding: "8px 0", opacity: 0.5 }}>No {ROLE_LABELS[role].toLowerCase()}s added yet</div>}
+              {rPlayers.map(p => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.bgCard, borderRadius: 10, marginBottom: 5, border: captain === p.id ? `1px solid ${C.crimson}` : viceCaptain === p.id ? `1px solid ${C.crimson}50` : `1px solid ${C.border}`, transition: "border-color 0.15s" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white, display: "flex", alignItems: "center", gap: 6 }}>
+                      {p.name}
+                      {captain === p.id && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>C</span>}
+                      {viceCaptain === p.id && <span style={{ background: C.crimson + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>VC</span>}
+                    </div>
+                    <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
+                  </div>
+                  <div style={{ textAlign: "right", marginRight: 4 }}>
+                    <div style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>${p.price}</div>
+                    <div style={{ fontSize: 10, color: C.gray }}>{p.pts > 0 ? `${p.pts} pts` : "New"}</div>
+                  </div>
+                  <button onClick={() => toggleCaptain(p.id)} style={{ background: captain === p.id ? C.crimson : "transparent", color: captain === p.id ? C.white : C.gray, border: `1px solid ${C.crimson}50`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>C</button>
+                  <button onClick={() => toggleVC(p.id)} style={{ background: viceCaptain === p.id ? C.crimson + "30" : "transparent", color: viceCaptain === p.id ? C.crimsonLt : C.gray, border: `1px solid ${C.crimson}30`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>VC</button>
+                  <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                 </div>
-                <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
-              </div>
-              <div style={{ textAlign: "right", marginRight: 4 }}>
-                <div style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>${p.price}</div>
-                <div style={{ fontSize: 10, color: C.gray }}>{p.pts > 0 ? `${p.pts} pts` : "New"}</div>
-              </div>
-              <button onClick={() => toggleCaptain(p.id)} style={{ background: captain === p.id ? C.crimson : "transparent", color: captain === p.id ? C.white : C.gray, border: `1px solid ${C.crimson}50`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>C</button>
-              <button onClick={() => toggleVC(p.id)} style={{ background: viceCaptain === p.id ? C.crimson + "30" : "transparent", color: viceCaptain === p.id ? C.crimsonLt : C.gray, border: `1px solid ${C.crimson}30`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>VC</button>
-              <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+              ))}
             </div>
           ))}
-        </div>
-      ))}
 
-      {/* Only show add/save if transfers open OR no squad yet */}
-      {(transfersOpen || !hasSquad) && (
-        <>
-          <button onClick={() => setShowPicker(true)} style={{ display: "block", width: "100%", marginTop: 12, padding: "13px", background: C.crimson, color: C.white, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add Players</button>
-          <button onClick={saveSquad} disabled={saving} style={{ display: "block", width: "100%", marginTop: 8, padding: "13px", background: saving ? C.bgCard : C.success + "CC", color: C.white, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
-          {saveMsg && <div style={{ marginTop: 8, padding: "9px 14px", borderRadius: 8, fontSize: 12, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30` }}>{saveMsg}</div>}
-        </>
-      )}
+          {/* Buttons */}
+          <div style={{ marginTop: 8 }}>
+            {hasSquad && !transfersOpen ? (
+              <div style={{ padding: "11px 16px", background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 12, color: C.gold, textAlign: "center" }}>
+                Transfer window closed — check back after Thursday selection
+              </div>
+            ) : (
+              <>
+                <button onClick={() => setShowPicker(true)} style={{ display: "block", width: "100%", padding: "12px", background: C.crimson, color: C.white, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 7 }}>+ Add Players</button>
+                <button onClick={saveSquad} disabled={saving} style={{ display: "block", width: "100%", padding: "12px", background: saving ? C.bgCard : C.success + "CC", color: C.white, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+              </>
+            )}
+            {saveMsg && <div style={{ marginTop: 8, padding: "9px 14px", borderRadius: 8, fontSize: 12, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30` }}>{saveMsg}</div>}
+          </div>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div style={{ paddingLeft: 24, paddingTop: 16 }}>
+          {/* Squad value */}
+          <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>SQUAD SUMMARY</div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: C.grayLt }}>Total squad value</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>${spent}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: C.grayLt }}>Remaining budget</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: remaining < 80 ? C.danger : C.white }}>${remaining}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: C.grayLt }}>Players selected</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{squad.length} / {SQUAD_SIZE}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12, color: C.grayLt }}>Marquee players</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: marqueeCount >= MAX_MARQUEE ? C.danger : C.white }}>{marqueeCount} / {MAX_MARQUEE}</span>
+            </div>
+          </div>
+
+          {/* Role breakdown */}
+          <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>ROLE BREAKDOWN</div>
+            {Object.entries(ROLE_LIMITS).map(([role, limit]) => {
+              const count = roleCounts[role] || 0;
+              const pct = (count / limit) * 100;
+              return (
+                <div key={role} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: ROLE_COLORS[role], fontWeight: 600 }}>{ROLE_LABELS[role]}s</span>
+                    <span style={{ fontSize: 11, color: C.gray }}>{count}/{limit}</span>
+                  </div>
+                  <div style={{ height: 4, background: C.bgDeep, borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: ROLE_COLORS[role], borderRadius: 2, transition: "width 0.3s" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Captain / VC summary */}
+          <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>LEADERSHIP</div>
+            {[["Captain (2×)", captain], ["Vice Captain (1.5×)", viceCaptain]].map(([label, id]) => {
+              const p = squad.find(x => x.id === id);
+              return (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: C.gray }}>{label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: p ? C.white : C.gray }}>{p ? p.name : "Not set"}</span>
+                </div>
+              );
+            })}
+            {(!captain || !viceCaptain) && (
+              <div style={{ marginTop: 8, fontSize: 11, color: C.gold, padding: "6px 10px", background: C.gold + "10", borderRadius: 6 }}>
+                Set both before saving your squad
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Picker modal */}
       {showPicker && (
@@ -686,6 +756,7 @@ function SquadPage({ players, userId }) {
           </div>
         </div>
       )}
+      </div>{/* end two-column grid */}
     </div>
   );
 }
@@ -739,46 +810,78 @@ function PlayersPage({ players }) {
 function LeaderboardPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase.from("profiles").select("id, team_name, username, total_pts").order("total_pts", { ascending: false }).limit(20);
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, team_name, username, total_pts, created_at")
+        .order("total_pts", { ascending: false });
       if (data) setEntries(data);
       setLoading(false);
     };
     fetch();
   }, []);
+
+  const hasPoints = entries.some(e => e.total_pts > 0);
+
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="Leaderboard" sub="Season 2026–27" />
-      {loading ? <Spinner label="Loading leaderboard..." /> : entries.length === 0 ? (
-        <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No entries yet — season starts soon!</div>
-      ) : (
+      {loading ? <Spinner label="Loading..." /> : (
         <div style={{ paddingTop: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
-            {entries.slice(0, 3).map((p, i) => (
-              <div key={p.id} style={{ background: i === 0 ? C.crimson + "15" : C.bgCard, borderRadius: 12, padding: "18px 14px", border: `1px solid ${i === 0 ? C.crimson + "40" : C.border}`, textAlign: "center" }}>
-                <div style={{ fontSize: 22, marginBottom: 5 }}>{["🥇","🥈","🥉"][i]}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{p.team_name || p.username}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD, marginTop: 8 }}>{p.total_pts}</div>
-                <div style={{ fontSize: 10, color: C.gray }}>total points</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: C.bgCard, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 100px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.8 }}>
-              <span>#</span><span>TEAM</span><span>TOTAL PTS</span>
-            </div>
-            {entries.map((p, i) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 100px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center" }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: i < 3 ? C.crimson : C.gray }}>{i + 1}</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: C.white }}>{p.team_name || "Unnamed Team"}</div>
-                  <div style={{ fontSize: 11, color: C.gray }}>{p.username}</div>
+
+          {/* Podium — only show when points exist */}
+          {hasPoints && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
+              {entries.slice(0, 3).map((p, i) => (
+                <div key={p.id} style={{ background: i === 0 ? C.crimson + "15" : C.bgCard, borderRadius: 12, padding: "18px 14px", border: `1px solid ${i === 0 ? C.crimson + "40" : C.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 5 }}>{["🥇","🥈","🥉"][i]}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{p.team_name || p.username}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD, marginTop: 8 }}>{p.total_pts}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>total points</div>
                 </div>
-                <span style={{ fontSize: 14, color: i < 3 ? C.crimson : C.whiteD, fontWeight: 700 }}>{p.total_pts}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Full table — everyone, sorted by points when available otherwise registration order */}
+          <div style={{ background: C.bgCard, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.8 }}>
+              <span>#</span>
+              <span>MANAGER</span>
+              <span style={{ textAlign: "right" }}>{hasPoints ? "TOTAL PTS" : "REGISTERED"}</span>
+            </div>
+            {entries.length === 0 ? (
+              <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No members yet — be the first to sign up!</div>
+            ) : entries.map((p, i) => (
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: hasPoints && i < 3 ? C.crimson : C.gray }}>{i + 1}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>
+                    {(p.team_name || p.username || "?")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{p.team_name || "Unnamed Team"}</div>
+                    <div style={{ fontSize: 11, color: C.gray }}>{p.username}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {hasPoints ? (
+                    <span style={{ fontSize: 14, color: hasPoints && i < 3 ? C.crimson : C.whiteD, fontWeight: 700 }}>{p.total_pts}</span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: C.gray }}>Joined</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+
+          {!hasPoints && (
+            <div style={{ marginTop: 12, padding: "10px 14px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.gray, textAlign: "center" }}>
+              Points will appear here once the first gameweek is calculated
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1025,7 +1128,6 @@ export default function App() {
       {page === "squad" && <SquadPage players={players} userId={session.user.id} />}
       {page === "players" && <PlayersPage players={players} />}
       {page === "leaderboard" && <LeaderboardPage />}
-      {page === "members" && <MembersPage />}
       {page === "howtoplay" && <HowToPlayPage />}
       {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
       {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} />}
