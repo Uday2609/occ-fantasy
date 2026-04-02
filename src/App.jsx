@@ -665,7 +665,6 @@ function SquadPage({ players, userId }) {
             )}
           </div>
         </div>
-      </div>
 
       {/* Picker modal */}
       {showPicker && (
