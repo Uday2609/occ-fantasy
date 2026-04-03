@@ -585,7 +585,7 @@ function SquadPage({ players, userId }) {
                   </div>
                   <div style={{ textAlign: "right", marginRight: 4 }}>
                     <div style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>${p.price}</div>
-                    <div style={{ fontSize: 10, color: C.gray }}>{p.pts > 0 ? `${p.pts} pts` : "New"}</div>
+                    <div style={{ fontSize: 10, color: C.gray }}>{p.pts} pts</div>
                   </div>
                   <button onClick={() => toggleCaptain(p.id)} style={{ background: captain === p.id ? C.crimson : "transparent", color: captain === p.id ? C.white : C.gray, border: `1px solid ${C.crimson}50`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>C</button>
                   <button onClick={() => toggleVC(p.id)} style={{ background: viceCaptain === p.id ? C.crimson + "30" : "transparent", color: viceCaptain === p.id ? C.crimsonLt : C.gray, border: `1px solid ${C.crimson}30`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>VC</button>
@@ -748,7 +748,7 @@ function SquadPage({ players, userId }) {
                       </div>
                       <div style={{ textAlign: "right", marginRight: 3, flexShrink: 0 }}>
                         <div style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>${p.price}</div>
-                        <div style={{ fontSize: 10, color: C.gray }}>{p.pts > 0 ? `${p.pts} pts` : "New"}</div>
+                        <div style={{ fontSize: 10, color: C.gray }}>{p.pts} pts</div>
                       </div>
                       {inSquad ? (
                         <button onClick={() => removePlayer(p.id)} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Remove</button>
@@ -803,7 +803,7 @@ function PlayersPage({ players }) {
               <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
             </div>
             <span style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>${p.price}</span>
-            <span style={{ fontSize: 13, color: C.whiteD, fontWeight: 500 }}>{p.pts > 0 ? p.pts : "—"}</span>
+            <span style={{ fontSize: 13, color: C.whiteD, fontWeight: 500 }}>{p.pts}</span>
             <span style={{ fontSize: 12, color: C.gray }}>{p.mp > 0 ? p.mp : "—"}</span>
           </div>
         ))}
