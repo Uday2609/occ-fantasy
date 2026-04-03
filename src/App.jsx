@@ -449,6 +449,7 @@ function SquadPage({ players, userId }) {
   const [loadingSquad, setLoadingSquad] = useState(true);
   const [transfersOpen, setTransfersOpen] = useState(false);
   const [deadline, setDeadline] = useState(null);
+  const [squadSavedInDb, setSquadSavedInDb] = useState(false);
 
   useEffect(() => {
     const loadAll = async () => {
@@ -459,6 +460,7 @@ function SquadPage({ players, userId }) {
       if (squadRes.data && squadRes.data.length > 0) {
         const saved = players.filter(p => squadRes.data.map(r => r.player_id).includes(p.id));
         setSquad(saved);
+        setSquadSavedInDb(true);
         const cap = squadRes.data.find(r => r.is_captain);
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
@@ -477,7 +479,8 @@ function SquadPage({ players, userId }) {
   const remaining = BUDGET - spent;
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
-  const hasSquad = squad.length > 0;
+  // Only lock buttons when squad is confirmed saved in DB AND window is closed
+  const hasSquad = squadSavedInDb;
 
   const canAdd = (p) => {
     if (squad.find(x => x.id === p.id)) return false;
@@ -512,7 +515,12 @@ function SquadPage({ players, userId }) {
     setSaving(true); setSaveMsg("");
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
     const { error } = await supabase.from("squads").insert(squad.map(p => ({ user_id: userId, player_id: p.id, gameweek_id: ACTIVE_GW, is_captain: p.id === captain, is_vice_captain: p.id === viceCaptain })));
-    setSaveMsg(error ? "Error saving squad. Try again." : "Squad saved!");
+    if (error) {
+      setSaveMsg("Error saving squad. Try again.");
+    } else {
+      setSaveMsg("Squad saved!");
+      setSquadSavedInDb(true);
+    }
     setSaving(false);
   };
 
@@ -814,7 +822,7 @@ function LeaderboardPage() {
     const fetch = async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, team_name, username, total_pts, created_at")
+        .select("id, team_name, username, total_pts")
         .order("total_pts", { ascending: false });
       if (data) setEntries(data);
       setLoading(false);
