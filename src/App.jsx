@@ -1,27 +1,15 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 
 const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
 const ACTIVE_GW = 1;
 
 const C = {
-  bg:         "#1C2131",
-  bgDeep:     "#141926",
-  bgCard:     "#242C3E",
-  bgCardHov:  "#2C3550",
-  crimson:    "#E24343",
-  crimsonLt:  "#FF6B6B",
-  crimsonDim: "#E2434320",
-  gold:       "#F0C040",
-  goldDim:    "#F0C04018",
-  white:      "#F1F5F9",
-  whiteD:     "#CBD5E1",
-  gray:       "#64748B",
-  grayLt:     "#94A3B8",
-  success:    "#3DBF7A",
-  danger:     "#E24343",
-  border:     "#FFFFFF10",
-  borderHov:  "#FFFFFF20",
+  bg: "#1C2131", bgDeep: "#141926", bgCard: "#242C3E", bgCardHov: "#2C3550",
+  crimson: "#E24343", crimsonLt: "#FF6B6B", gold: "#F0C040", goldDim: "#F0C04018",
+  white: "#F1F5F9", whiteD: "#CBD5E1", gray: "#64748B", grayLt: "#94A3B8",
+  success: "#3DBF7A", danger: "#E24343", border: "#FFFFFF10", borderHov: "#FFFFFF20",
+  indigo: "#818CF8", amber: "#FB923C",
 };
 
 const ROLE_LABELS = { BAT: "Batter", BOWL: "Bowler", AR: "All-rounder", WK: "Keeper" };
@@ -34,32 +22,26 @@ const MARQUEE_PRICE = 100;
 const MAX_MARQUEE = 3;
 
 const SCORING = [
-  { label: "Run scored", value: "1 pt" },
-  { label: "Boundary (4)", value: "+4 bonus" },
-  { label: "Six (6)", value: "+6 bonus" },
-  { label: "Half-century (50)", value: "+20 pts" },
-  { label: "Century (100)", value: "+35 pts" },
-  { label: "Duck", value: "-5 pts" },
-  { label: "Wicket taken", value: "10 pts" },
-  { label: "3-wicket haul", value: "+20 pts" },
-  { label: "5-wicket haul", value: "+35 pts" },
-  { label: "Catch", value: "15 pts" },
-  { label: "Run out", value: "15 pts" },
-  { label: "No ball bowled", value: "-1 pt" },
-  { label: "3 wides bowled", value: "-1 pt" },
-  { label: "Captain", value: "2× points" },
-  { label: "Vice Captain", value: "1.5× points" },
+  { label: "Run scored", value: "1 pt" }, { label: "Boundary (4)", value: "+4 bonus" },
+  { label: "Six (6)", value: "+6 bonus" }, { label: "Half-century (50)", value: "+20 pts" },
+  { label: "Century (100)", value: "+35 pts" }, { label: "Duck", value: "-5 pts" },
+  { label: "Wicket taken", value: "10 pts" }, { label: "3-wicket haul", value: "+20 pts" },
+  { label: "5-wicket haul", value: "+35 pts" }, { label: "Catch", value: "15 pts" },
+  { label: "Run out", value: "15 pts" }, { label: "No ball bowled", value: "-1 pt" },
+  { label: "3 wides bowled", value: "-1 pt" }, { label: "Captain", value: "2x points" },
+  { label: "Vice Captain", value: "1.5x points" },
 ];
 
 const RULES = [
   { title: "Squad size", desc: "Select 15 players. All 15 score points every gameweek — no bench." },
   { title: "Budget", desc: "You have $1,000 credits to build your squad. Spend wisely." },
-  { title: "Role limits", desc: "Max 5 Batters · Max 5 Bowlers · Max 4 All-rounders · Max 3 Keepers." },
-  { title: "Captain & VC", desc: "Pick a captain (2× points) and vice captain (1.5×) each gameweek." },
+  { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 4 All-rounders, Max 3 Keepers." },
+  { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
-  { title: "Transfers", desc: "4 transfers per gameweek. Transfer window opens after squad selection Thursday." },
-  { title: "Deadlines", desc: "Transfer deadline is Friday night. Late transfers are not accepted." },
+  { title: "Transfers", desc: "4 transfers per gameweek. Window opens after Thursday selection." },
+  { title: "Deadlines", desc: "Transfer deadline is Friday night. Late transfers not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores — runs, wickets, catches, run outs all count." },
+  { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
   { title: "PlayCricket", desc: "Scores pulled from PlayCricket after each round, updated by Sunday." },
 ];
 
@@ -67,37 +49,28 @@ const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Sora',sans-serif;background:#141926;color:#F1F5F9;min-height:100vh}
-  ::-webkit-scrollbar{width:5px}
-  ::-webkit-scrollbar-track{background:#1C2131}
+  ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:#1C2131}
   ::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
   input::placeholder{color:#64748B}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+  @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 `;
-
-// --- POINTS CALCULATOR -----------------------------------------------------------
 
 function calcPoints(s) {
   let pts = 0;
-  pts += (s.runs || 0);
-  pts += (s.fours || 0) * 4;
-  pts += (s.sixes || 0) * 6;
-  if ((s.runs || 0) >= 100) pts += 35;
-  else if ((s.runs || 0) >= 50) pts += 20;
+  pts += (s.runs || 0); pts += (s.fours || 0) * 4; pts += (s.sixes || 0) * 6;
+  if ((s.runs || 0) >= 100) pts += 35; else if ((s.runs || 0) >= 50) pts += 20;
   if (s.was_dismissed && (s.runs || 0) === 0 && s.did_bat) pts -= 5;
   pts += (s.wickets || 0) * 10;
-  if (s.five_fer) pts += 35;
-  else if (s.three_fer) pts += 20;
-  pts += (s.catches || 0) * 15;
-  pts += (s.run_outs || 0) * 15;
-  pts += (s.stumpings || 0) * 15;
-  pts -= (s.no_balls || 0);
-  pts -= Math.floor((s.wides || 0) / 3);
+  if (s.five_fer) pts += 35; else if (s.three_fer) pts += 20;
+  pts += (s.catches || 0) * 15; pts += (s.run_outs || 0) * 15; pts += (s.stumpings || 0) * 15;
+  pts -= (s.no_balls || 0); pts -= Math.floor((s.wides || 0) / 3);
   return Math.max(pts, 0);
 }
 
-// --- SHARED COMPONENTS -----------------------------------------------------------
+// --- SHARED COMPONENTS ---
 
 function Spinner({ label = "Loading..." }) {
   return (
@@ -108,12 +81,11 @@ function Spinner({ label = "Loading..." }) {
   );
 }
 
-function Inp({ label, type = "text", value, onChange, placeholder, error }) {
+function Inp({ label, type = "text", value, onChange, placeholder }) {
   return (
     <div style={{ marginBottom: 14 }}>
       {label && <div style={{ fontSize: 12, color: C.gray, marginBottom: 5, fontWeight: 500 }}>{label}</div>}
       <input type={type} value={value} onChange={onChange} placeholder={placeholder} style={{ width: "100%", background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 8, padding: "10px 14px", fontSize: 13, outline: "none" }} />
-      {error && <div style={{ fontSize: 11, color: C.danger, marginTop: 3 }}>{error}</div>}
     </div>
   );
 }
@@ -123,11 +95,14 @@ function RoleBadge({ role }) {
   return <span style={{ background: c + "20", color: c, border: `1px solid ${c}40`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>{ROLE_LABELS[role]}</span>;
 }
 
-function StatCard({ label, value, accent }) {
+function StatCard({ label, value, accent, onClick, sub }) {
   return (
-    <div style={{ background: C.bgCard, borderRadius: 10, padding: "12px 14px", border: `1px solid ${(accent || C.crimson)}20`, textAlign: "center" }}>
+    <div onClick={onClick} style={{ background: C.bgCard, borderRadius: 10, padding: "12px 14px", border: `1px solid ${(accent || C.crimson)}20`, textAlign: "center", cursor: onClick ? "pointer" : "default", transition: "border-color 0.15s" }}
+      onMouseEnter={e => onClick && (e.currentTarget.style.borderColor = (accent || C.crimson) + "50")}
+      onMouseLeave={e => onClick && (e.currentTarget.style.borderColor = (accent || C.crimson) + "20")}>
       <div style={{ fontSize: 20, fontWeight: 700, color: accent || C.white }}>{value}</div>
       <div style={{ fontSize: 10, color: C.gray, marginTop: 2, letterSpacing: 0.3 }}>{label}</div>
+      {sub && <div style={{ fontSize: 10, color: accent || C.crimson, marginTop: 3 }}>{sub}</div>}
     </div>
   );
 }
@@ -142,53 +117,42 @@ function Header({ title, sub }) {
   );
 }
 
-// --- COUNTDOWN TIMER -------------------------------------------------------------
-
-function Countdown({ deadline }) {
-  const [time, setTime] = useState({});
-
-  useEffect(() => {
-    const calc = () => {
-      const diff = new Date(deadline) - new Date();
-      if (diff <= 0) { setTime({ expired: true }); return; }
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setTime({ d, h, m, s });
-    };
-    calc();
-    const id = setInterval(calc, 1000);
-    return () => clearInterval(id);
-  }, [deadline]);
-
-  if (time.expired) return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.danger + "20", border: `1px solid ${C.danger}40`, borderRadius: 8, padding: "6px 14px" }}>
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.danger, animation: "pulse 1s infinite" }} />
-      <span style={{ fontSize: 12, color: C.danger, fontWeight: 600 }}>Deadline passed</span>
-    </div>
-  );
-
-  const seg = (val, lbl) => (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: C.white, lineHeight: 1 }}>{String(val).padStart(2,"0")}</div>
-      <div style={{ fontSize: 9, color: C.gray, marginTop: 2 }}>{lbl}</div>
-    </div>
-  );
-
-  const sep = <div style={{ fontSize: 16, fontWeight: 700, color: C.crimson, marginBottom: 8 }}>:</div>;
-
+function Modal({ title, onClose, children }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 16px" }}>
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.success, animation: "pulse 2s infinite", flexShrink: 0 }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {seg(time.d, "days")}{sep}{seg(time.h, "hrs")}{sep}{seg(time.m, "min")}{sep}{seg(time.s, "sec")}
+    <div style={{ position: "fixed", inset: 0, background: "#00000088", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={onClose}>
+      <div style={{ background: C.bgCard, borderRadius: 14, padding: 24, width: "100%", maxWidth: 520, maxHeight: "80vh", overflowY: "auto", border: `1px solid ${C.border}`, animation: "fadeUp 0.25s ease" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{title}</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.gray, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>x</button>
+        </div>
+        {children}
       </div>
     </div>
   );
 }
 
-// --- AUTH ------------------------------------------------------------------------
+function Countdown({ deadline }) {
+  const [time, setTime] = useState({});
+  useEffect(() => {
+    const calc = () => {
+      const diff = new Date(deadline) - new Date();
+      if (diff <= 0) { setTime({ expired: true }); return; }
+      setTime({ d: Math.floor(diff / 86400000), h: Math.floor((diff % 86400000) / 3600000), m: Math.floor((diff % 3600000) / 60000), s: Math.floor((diff % 60000) / 1000) });
+    };
+    calc(); const id = setInterval(calc, 1000); return () => clearInterval(id);
+  }, [deadline]);
+  if (time.expired) return <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.danger + "20", border: `1px solid ${C.danger}40`, borderRadius: 8, padding: "6px 14px" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: C.danger, animation: "pulse 1s infinite" }} /><span style={{ fontSize: 12, color: C.danger, fontWeight: 600 }}>Deadline passed</span></div>;
+  const seg = (v, l) => <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: C.white, lineHeight: 1 }}>{String(v).padStart(2, "0")}</div><div style={{ fontSize: 9, color: C.gray, marginTop: 2 }}>{l}</div></div>;
+  const sep = <div style={{ fontSize: 16, fontWeight: 700, color: C.crimson, marginBottom: 8 }}>:</div>;
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 16px" }}>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.success, animation: "pulse 2s infinite", flexShrink: 0 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>{seg(time.d, "days")}{sep}{seg(time.h, "hrs")}{sep}{seg(time.m, "min")}{sep}{seg(time.s, "sec")}</div>
+    </div>
+  );
+}
+
+// --- AUTH ---
 
 function AuthPage() {
   const [mode, setMode] = useState("login");
@@ -196,16 +160,12 @@ function AuthPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, background: C.bgDeep }}>
       <div style={{ animation: "fadeUp 0.4s ease", width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", margin: "0 auto 14px", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🏏</div>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", margin: "0 auto 14px", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>&#127955;</div>
           <div style={{ fontWeight: 700, fontSize: 20, color: C.white }}>OCC Fantasy</div>
-          <div style={{ fontSize: 11, color: C.gray, marginTop: 3, letterSpacing: 1 }}>OAKLEIGH CRICKET CLUB · 2026–27</div>
+          <div style={{ fontSize: 11, color: C.gray, marginTop: 3, letterSpacing: 1 }}>OAKLEIGH CRICKET CLUB · 2026-27</div>
         </div>
         <div style={{ display: "flex", background: C.bgCard, borderRadius: 10, padding: 3, marginBottom: 20, border: `1px solid ${C.border}` }}>
-          {["login","signup"].map(m => (
-            <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mode === m ? C.bg : "transparent", color: mode === m ? C.white : C.gray, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>
-              {m === "login" ? "Log in" : "Sign up"}
-            </button>
-          ))}
+          {["login", "signup"].map(m => <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mode === m ? C.bg : "transparent", color: mode === m ? C.white : C.gray, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>{m === "login" ? "Log in" : "Sign up"}</button>)}
         </div>
         {mode === "login" ? <LoginForm /> : <SignupForm />}
       </div>
@@ -214,36 +174,28 @@ function AuthPage() {
 }
 
 function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false); const [error, setError] = useState("");
   const handle = async () => {
     if (!email || !password) { setError("Please fill in all fields."); return; }
     setLoading(true); setError("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError("Incorrect email or password.");
-    setLoading(false);
+    if (error) setError("Incorrect email or password."); setLoading(false);
   };
   return (
     <div style={{ background: C.bgCard, borderRadius: 14, padding: 22, border: `1px solid ${C.border}` }}>
       <Inp label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
       <Inp label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" />
       {error && <div style={{ fontSize: 12, color: C.danger, marginBottom: 12, padding: "8px 12px", background: C.danger + "15", borderRadius: 6 }}>{error}</div>}
-      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? C.bgCard : C.crimson, color: C.white, fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer", transition: "all 0.15s" }}>
-        {loading ? "Logging in..." : "Log in"}
-      </button>
+      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? C.bgCard : C.crimson, color: C.white, fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Logging in..." : "Log in"}</button>
     </div>
   );
 }
 
 function SignupForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [teamName, setTeamName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState(""); const [teamName, setTeamName] = useState("");
+  const [loading, setLoading] = useState(false); const [error, setError] = useState("");
   const handle = async () => {
     if (!email || !password || !confirm) { setError("Please fill in all fields."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
@@ -261,44 +213,35 @@ function SignupForm() {
       <Inp label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" />
       <Inp label="Confirm password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat your password" />
       {error && <div style={{ fontSize: 12, color: C.danger, marginBottom: 12, padding: "8px 12px", background: C.danger + "15", borderRadius: 6 }}>{error}</div>}
-      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? C.bgCard : C.crimson, color: C.white, fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>
-        {loading ? "Creating account..." : "Create account"}
-      </button>
+      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? C.bgCard : C.crimson, color: C.white, fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Creating account..." : "Create account"}</button>
     </div>
   );
 }
 
-// --- NAV -------------------------------------------------------------------------
+// --- NAV ---
 
 function Nav({ page, setPage, user, profile, onLogout }) {
   const [showMenu, setShowMenu] = useState(false);
   const isAdmin = user?.id === ADMIN_ID;
   const tabs = [
-    { id: "squad", label: "My Squad" },
-    { id: "players", label: "Players" },
-    { id: "leaderboard", label: "Leaderboard" },
+    { id: "squad", label: "My Squad" }, { id: "players", label: "Players" },
+    { id: "leaderboard", label: "Leaderboard" }, { id: "teams", label: "View Teams" },
+    { id: "history", label: "GW History" }, { id: "stats", label: "Season Stats" },
     { id: "howtoplay", label: "How to Play" },
-    ...(isAdmin ? [{ id: "admin", label: "⚙ Admin" }] : []),
+    ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
   return (
-    <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginRight: 28, padding: "13px 0" }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🏏</div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, color: C.white, lineHeight: 1.1 }}>OCC Fantasy</div>
-          <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>2026–27</div>
-        </div>
+    <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px", overflowX: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
+        <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>&#127955;</div>
+        <div><div style={{ fontWeight: 700, fontSize: 12, color: C.white, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>2026-27</div></div>
       </div>
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 13px", fontSize: 12, fontWeight: 500, color: page === t.id ? C.crimson : C.gray, borderBottom: page === t.id ? `2px solid ${C.crimson}` : "2px solid transparent", marginBottom: -1, transition: "color 0.15s" }}>{t.label}</button>
-      ))}
-      <div style={{ marginLeft: "auto", position: "relative" }}>
+      {tabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? C.crimson : C.gray, borderBottom: page === t.id ? `2px solid ${C.crimson}` : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
+      <div style={{ marginLeft: "auto", position: "relative", flexShrink: 0 }}>
         <button onClick={() => setShowMenu(m => !m)} style={{ display: "flex", alignItems: "center", gap: 7, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
-          <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.crimson + "25", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.crimson }}>
-            {(profile?.team_name || user?.email || "?")[0].toUpperCase()}
-          </div>
-          <span style={{ fontSize: 12, color: C.white, fontWeight: 500, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile?.team_name || user?.email}</span>
-          <span style={{ fontSize: 9, color: C.gray }}>▾</span>
+          <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.crimson + "25", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.crimson }}>{(profile?.team_name || user?.email || "?")[0].toUpperCase()}</div>
+          <span style={{ fontSize: 12, color: C.white, fontWeight: 500, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile?.team_name || user?.email}</span>
+          <span style={{ fontSize: 9, color: C.gray }}>v</span>
         </button>
         {showMenu && (
           <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, minWidth: 180, boxShadow: "0 8px 24px #00000060", zIndex: 300 }}>
@@ -312,24 +255,18 @@ function Nav({ page, setPage, user, profile, onLogout }) {
   );
 }
 
-// --- ACCOUNT PAGE ----------------------------------------------------------------
+// --- ACCOUNT PAGE ---
 
 function AccountPage({ user, profile, onLogout }) {
   const [teamName, setTeamName] = useState(profile?.team_name || "");
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState("");
-  const [deleteMsg, setDeleteMsg] = useState("");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
+  const [saving, setSaving] = useState(false); const [saveMsg, setSaveMsg] = useState("");
+  const [deleting, setDeleting] = useState(false); const [confirmDelete, setConfirmDelete] = useState("");
+  const [deleteMsg, setDeleteMsg] = useState(""); const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const saveTeamName = async () => {
     setSaving(true); setSaveMsg("");
     const { error } = await supabase.from("profiles").update({ team_name: teamName }).eq("id", user.id);
-    setSaveMsg(error ? "Failed to save." : "Team name updated!");
-    setSaving(false);
+    setSaveMsg(error ? "Failed to save." : "Team name updated!"); setSaving(false);
   };
-
   const deleteAccount = async () => {
     if (confirmDelete !== user.email) { setDeleteMsg("Email doesn't match."); return; }
     setDeleting(true);
@@ -337,45 +274,31 @@ function AccountPage({ user, profile, onLogout }) {
     await supabase.from("fantasy_points").delete().eq("user_id", user.id);
     await supabase.from("profiles").delete().eq("id", user.id);
     const { error } = await supabase.rpc("delete_user");
-    if (error) {
-      setDeleteMsg("Could not fully delete — contact admin to remove your account.");
-    } else {
-      await supabase.auth.signOut();
-      onLogout();
-    }
+    if (error) { setDeleteMsg("Could not fully delete — contact admin."); } else { await supabase.auth.signOut(); onLogout(); }
     setDeleting(false);
   };
-
   return (
     <div style={{ padding: "0 32px 48px", maxWidth: 560 }}>
       <Header title="Account Settings" sub={user.email} />
-
       <div style={{ padding: "24px 0", display: "flex", flexDirection: "column", gap: 20 }}>
-        {/* Team name */}
         <div style={{ background: C.bgCard, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: C.white, marginBottom: 14 }}>Team name</div>
           <Inp value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Howes XI" />
-          <button onClick={saveTeamName} disabled={saving} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: saving ? C.bg : C.crimson, color: C.white, fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>
-            {saving ? "Saving..." : "Save"}
-          </button>
+          <button onClick={saveTeamName} disabled={saving} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: saving ? C.bg : C.crimson, color: C.white, fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save"}</button>
           {saveMsg && <div style={{ marginTop: 10, fontSize: 12, color: saveMsg.includes("!") ? C.success : C.danger }}>{saveMsg}</div>}
         </div>
-
-        {/* Delete account */}
         <div style={{ background: C.bgCard, borderRadius: 12, padding: 20, border: `1px solid ${C.danger}30` }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: C.danger, marginBottom: 6 }}>Delete account</div>
-          <div style={{ fontSize: 12, color: C.gray, marginBottom: 14, lineHeight: 1.6 }}>This permanently deletes your account, squad, and all points history. This cannot be undone.</div>
+          <div style={{ fontSize: 12, color: C.gray, marginBottom: 14, lineHeight: 1.6 }}>Permanently deletes your account, squad, and all points history.</div>
           {!showDeleteConfirm ? (
             <button onClick={() => setShowDeleteConfirm(true)} style={{ padding: "9px 20px", borderRadius: 8, border: `1px solid ${C.danger}50`, background: C.danger + "15", color: C.danger, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Delete my account</button>
           ) : (
             <div>
-              <div style={{ fontSize: 12, color: C.grayLt, marginBottom: 8 }}>Type your email address to confirm: <span style={{ color: C.white }}>{user.email}</span></div>
+              <div style={{ fontSize: 12, color: C.grayLt, marginBottom: 8 }}>Type your email to confirm: <span style={{ color: C.white }}>{user.email}</span></div>
               <Inp value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} placeholder={user.email} />
               {deleteMsg && <div style={{ fontSize: 12, color: C.danger, marginBottom: 8 }}>{deleteMsg}</div>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={deleteAccount} disabled={deleting} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.danger, color: C.white, fontSize: 13, fontWeight: 700, cursor: deleting ? "default" : "pointer" }}>
-                  {deleting ? "Deleting..." : "Confirm delete"}
-                </button>
+                <button onClick={deleteAccount} disabled={deleting} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.danger, color: C.white, fontSize: 13, fontWeight: 700, cursor: deleting ? "default" : "pointer" }}>{deleting ? "Deleting..." : "Confirm delete"}</button>
                 <button onClick={() => { setShowDeleteConfirm(false); setConfirmDelete(""); setDeleteMsg(""); }} style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.gray, fontSize: 13, cursor: "pointer" }}>Cancel</button>
               </div>
             </div>
@@ -386,56 +309,64 @@ function AccountPage({ user, profile, onLogout }) {
   );
 }
 
-// --- MEMBERS PAGE ----------------------------------------------------------------
+// --- PLAYER PROFILE MODAL ---
 
-function MembersPage() {
-  const [members, setMembers] = useState([]);
+function PlayerProfileModal({ player, onClose }) {
+  const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase.from("profiles").select("id, team_name, username, total_pts").order("created_at", { ascending: true });
-      if (data) setMembers(data);
+      const { data } = await supabase.from("gameweek_scores").select("*").eq("player_id", player.id).order("gameweek_id", { ascending: true });
+      if (data) setScores(data);
       setLoading(false);
     };
     fetch();
-  }, []);
-
-  const filtered = members.filter(m =>
-    search === "" ||
-    (m.team_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (m.username || "").toLowerCase().includes(search.toLowerCase())
-  );
-
+  }, [player.id]);
+  const totalRuns = scores.reduce((s, r) => s + (r.runs || 0), 0);
+  const totalWkts = scores.reduce((s, r) => s + (r.wickets || 0), 0);
+  const totalCatches = scores.reduce((s, r) => s + (r.catches || 0), 0);
+  const totalPts = scores.reduce((s, r) => s + (r.calculated_pts || 0), 0);
   return (
-    <div style={{ padding: "0 32px 48px" }}>
-      <Header title="Members" sub={`${members.length} managers registered for 2026–27`} />
-      <div style={{ padding: "20px 0" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by team or name..." style={{ width: "100%", maxWidth: 320, background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 8, padding: "8px 14px", fontSize: 13, outline: "none", marginBottom: 16 }} />
-        {loading ? <Spinner label="Loading members..." /> : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No members found.</div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-            {filtered.map((m, i) => (
-              <div key={m.id} style={{ background: C.bgCard, borderRadius: 10, padding: "14px 16px", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12, animation: "fadeUp 0.3s ease" }}>
-                <div style={{ width: 38, height: 38, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>
-                  {(m.team_name || m.username || "?")[0].toUpperCase()}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.team_name || "Unnamed Team"}</div>
-                  <div style={{ fontSize: 11, color: C.gray, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.username || m.email}</div>
-                </div>
+    <Modal title={player.name} onClose={onClose}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <RoleBadge role={player.role} />
+        {player.is_marquee && <span style={{ background: C.gold + "20", color: C.gold, border: `1px solid ${C.gold}40`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>MARQUEE</span>}
+        <span style={{ fontSize: 13, color: C.gold, fontWeight: 700, marginLeft: "auto" }}>${player.price}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 18 }}>
+        {[["Pts", totalPts, C.crimson], ["Runs", totalRuns, C.indigo], ["Wickets", totalWkts, C.gold], ["Catches", totalCatches, C.success]].map(([l, v, a]) => (
+          <div key={l} style={{ background: C.bgDeep, borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: a }}>{v}</div>
+            <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      {loading ? <Spinner label="Loading stats..." /> : scores.length === 0 ? (
+        <div style={{ textAlign: "center", color: C.gray, padding: "20px 0", fontSize: 13 }}>No gameweek data yet — season hasn't started.</div>
+      ) : (
+        <div>
+          <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 8 }}>GAMEWEEK BREAKDOWN</div>
+          <div style={{ background: C.bgDeep, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 1fr 70px", padding: "7px 12px", fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${C.border}` }}>
+              <span>GW</span><span>Batting</span><span>Bowling</span><span>Fielding</span><span style={{ textAlign: "right" }}>Pts</span>
+            </div>
+            {scores.map(s => (
+              <div key={s.gameweek_id} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 1fr 70px", padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 12, alignItems: "center" }}>
+                <span style={{ color: C.crimson, fontWeight: 700 }}>GW{s.gameweek_id}</span>
+                <span style={{ color: C.whiteD }}>{s.runs || 0} runs{s.fours ? `, ${s.fours}x4` : ""}{s.sixes ? `, ${s.sixes}x6` : ""}</span>
+                <span style={{ color: C.whiteD }}>{s.wickets || 0} wkts</span>
+                <span style={{ color: C.whiteD }}>{(s.catches || 0) + (s.run_outs || 0) + (s.stumpings || 0)} field</span>
+                <span style={{ textAlign: "right", fontWeight: 700, color: C.crimson }}>{s.calculated_pts || 0}</span>
               </div>
             ))}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
-// --- SQUAD PAGE ------------------------------------------------------------------
+// --- SQUAD PAGE ---
 
 function SquadPage({ players, userId }) {
   const [squad, setSquad] = useState([]);
@@ -450,36 +381,63 @@ function SquadPage({ players, userId }) {
   const [transfersOpen, setTransfersOpen] = useState(false);
   const [deadline, setDeadline] = useState(null);
   const [squadSavedInDb, setSquadSavedInDb] = useState(false);
+  const [gwPoints, setGwPoints] = useState(null);
+  const [gwAvg, setGwAvg] = useState(null);
+  const [gwHigh, setGwHigh] = useState(null);
+  const [showGwBreakdown, setShowGwBreakdown] = useState(false);
+  const [gwBreakdown, setGwBreakdown] = useState([]);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
   useEffect(() => {
     const loadAll = async () => {
-      const [squadRes, gwRes] = await Promise.all([
+      const [squadRes, gwRes, myPtsRes, allPtsRes] = await Promise.all([
         supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW),
         supabase.from("gameweeks").select("deadline, transfers_open").eq("number", ACTIVE_GW).single(),
+        supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW).single(),
+        supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", ACTIVE_GW),
       ]);
       if (squadRes.data && squadRes.data.length > 0) {
         const saved = players.filter(p => squadRes.data.map(r => r.player_id).includes(p.id));
-        setSquad(saved);
-        setSquadSavedInDb(true);
+        setSquad(saved); setSquadSavedInDb(true);
         const cap = squadRes.data.find(r => r.is_captain);
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
         if (vc) setViceCaptain(vc.player_id);
       }
-      if (gwRes.data) {
-        setTransfersOpen(gwRes.data.transfers_open);
-        setDeadline(gwRes.data.deadline);
+      if (gwRes.data) { setTransfersOpen(gwRes.data.transfers_open); setDeadline(gwRes.data.deadline); }
+      if (myPtsRes.data) setGwPoints(myPtsRes.data.total_pts);
+      if (allPtsRes.data && allPtsRes.data.length > 0) {
+        const pts = allPtsRes.data.map(r => r.total_pts);
+        setGwAvg(Math.round(pts.reduce((a, b) => a + b, 0) / pts.length));
+        setGwHigh(Math.max(...pts));
       }
       setLoadingSquad(false);
     };
     if (players.length > 0) loadAll();
   }, [players, userId]);
 
+  const loadGwBreakdown = async () => {
+    setLoadingBreakdown(true);
+    const { data: squadData } = await supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
+    const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", ACTIVE_GW);
+    if (squadData && scoreData) {
+      const scoreMap = {};
+      scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
+      const breakdown = squadData.map(entry => {
+        const player = players.find(p => p.id === entry.player_id);
+        let pts = scoreMap[entry.player_id] || 0;
+        const multiplier = entry.is_captain ? 2 : entry.is_vice_captain ? 1.5 : 1;
+        return { player, basePts: pts, finalPts: Math.round(pts * multiplier), isCaptain: entry.is_captain, isVC: entry.is_vice_captain };
+      }).sort((a, b) => b.finalPts - a.finalPts);
+      setGwBreakdown(breakdown);
+    }
+    setLoadingBreakdown(false); setShowGwBreakdown(true);
+  };
+
   const spent = squad.reduce((s, p) => s + p.price, 0);
   const remaining = BUDGET - spent;
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
-  // Only lock buttons when squad is confirmed saved in DB AND window is closed
   const hasSquad = squadSavedInDb;
 
   const canAdd = (p) => {
@@ -499,13 +457,11 @@ function SquadPage({ players, userId }) {
 
   const toggleCaptain = (id) => {
     if (captain === id) { setCaptain(null); return; }
-    if (viceCaptain === id) setViceCaptain(null);
-    setCaptain(id);
+    if (viceCaptain === id) setViceCaptain(null); setCaptain(id);
   };
   const toggleVC = (id) => {
     if (viceCaptain === id) { setViceCaptain(null); return; }
-    if (captain === id) setCaptain(null);
-    setViceCaptain(id);
+    if (captain === id) setCaptain(null); setViceCaptain(id);
   };
 
   const saveSquad = async () => {
@@ -515,12 +471,7 @@ function SquadPage({ players, userId }) {
     setSaving(true); setSaveMsg("");
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
     const { error } = await supabase.from("squads").insert(squad.map(p => ({ user_id: userId, player_id: p.id, gameweek_id: ACTIVE_GW, is_captain: p.id === captain, is_vice_captain: p.id === viceCaptain })));
-    if (error) {
-      setSaveMsg("Error saving squad. Try again.");
-    } else {
-      setSaveMsg("Squad saved!");
-      setSquadSavedInDb(true);
-    }
+    if (error) { setSaveMsg("Error saving squad. Try again."); } else { setSaveMsg("Squad saved!"); setSquadSavedInDb(true); }
     setSaving(false);
   };
 
@@ -532,27 +483,39 @@ function SquadPage({ players, userId }) {
 
   return (
     <div style={{ padding: "0 0 48px" }}>
-      {/* Header */}
       <div style={{ padding: "32px 32px 18px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ fontSize: 10, color: C.crimson, letterSpacing: 3, fontWeight: 600, marginBottom: 5 }}>OAKLEIGH CRICKET CLUB</div>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: C.white, lineHeight: 1.2, marginBottom: 10 }}>My Squad</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {deadline && <Countdown deadline={deadline} />}
-          {!transfersOpen && hasSquad && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.gold + "15", border: `1px solid ${C.gold}40`, borderRadius: 8, padding: "6px 14px" }}>
-              <span style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>Transfer window closed</span>
-            </div>
-          )}
-          {transfersOpen && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.success + "15", border: `1px solid ${C.success}40`, borderRadius: 8, padding: "6px 14px" }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.success, animation: "pulse 1.5s infinite" }} />
-              <span style={{ fontSize: 12, color: C.success, fontWeight: 600 }}>Transfer window open</span>
-            </div>
-          )}
+          {!transfersOpen && hasSquad && <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.gold + "15", border: `1px solid ${C.gold}40`, borderRadius: 8, padding: "6px 14px" }}><span style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>Transfer window closed</span></div>}
+          {transfersOpen && <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.success + "15", border: `1px solid ${C.success}40`, borderRadius: 8, padding: "6px 14px" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: C.success, animation: "pulse 1.5s infinite" }} /><span style={{ fontSize: 12, color: C.success, fontWeight: 600 }}>Transfer window open</span></div>}
         </div>
       </div>
 
-      {/* Stat pills */}
+      {/* GW points banner */}
+      {gwPoints !== null && (
+        <div style={{ padding: "14px 32px", background: C.bgCard, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, maxWidth: 480 }}>
+            <div onClick={loadGwBreakdown} style={{ background: C.crimson + "15", border: `1px solid ${C.crimson}40`, borderRadius: 10, padding: "12px 14px", textAlign: "center", cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = C.crimson + "80"}
+              onMouseLeave={e => e.currentTarget.style.borderColor = C.crimson + "40"}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: C.crimson }}>{gwPoints}</div>
+              <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>MY GW{ACTIVE_GW} SCORE</div>
+              <div style={{ fontSize: 10, color: C.crimson, marginTop: 3 }}>tap to see breakdown</div>
+            </div>
+            <div style={{ background: C.bgDeep, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: C.gold }}>{gwAvg ?? "—"}</div>
+              <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>GW AVG</div>
+            </div>
+            <div style={{ background: C.bgDeep, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: C.success }}>{gwHigh ?? "—"}</div>
+              <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>GW HIGH</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "16px 32px" }}>
         <StatCard label="BUDGET LEFT" value={`$${remaining}`} accent={remaining < 80 ? C.danger : C.white} />
         <StatCard label="PLAYERS" value={`${squad.length}/${SQUAD_SIZE}`} />
@@ -560,10 +523,7 @@ function SquadPage({ players, userId }) {
         <StatCard label="TRANSFERS" value={`${TRANSFERS_PER_GW}/${TRANSFERS_PER_GW}`} accent={transfersOpen ? C.success : C.gray} />
       </div>
 
-      {/* Two-column layout */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 0, padding: "0 32px" }}>
-
-        {/* LEFT — squad list */}
         <div style={{ paddingRight: 24, borderRight: `1px solid ${C.border}` }}>
           {Object.entries(grouped).map(([role, rPlayers]) => (
             <div key={role} style={{ marginBottom: 16 }}>
@@ -574,12 +534,12 @@ function SquadPage({ players, userId }) {
               </div>
               {rPlayers.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12, padding: "8px 0", opacity: 0.5 }}>No {ROLE_LABELS[role].toLowerCase()}s added yet</div>}
               {rPlayers.map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.bgCard, borderRadius: 10, marginBottom: 5, border: captain === p.id ? `1px solid ${C.crimson}` : viceCaptain === p.id ? `1px solid ${C.crimson}50` : `1px solid ${C.border}`, transition: "border-color 0.15s" }}>
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.bgCard, borderRadius: 10, marginBottom: 5, border: captain === p.id ? `1px solid ${C.crimson}` : viceCaptain === p.id ? `1px solid ${C.crimsonLt}60` : `1px solid ${C.border}`, transition: "border-color 0.15s" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: C.white, display: "flex", alignItems: "center", gap: 6 }}>
                       {p.name}
                       {captain === p.id && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>C</span>}
-                      {viceCaptain === p.id && <span style={{ background: C.crimson + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>VC</span>}
+                      {viceCaptain === p.id && <span style={{ background: C.crimsonLt + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>VC</span>}
                     </div>
                     <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
                   </div>
@@ -588,19 +548,15 @@ function SquadPage({ players, userId }) {
                     <div style={{ fontSize: 10, color: C.gray }}>{p.pts} pts</div>
                   </div>
                   <button onClick={() => toggleCaptain(p.id)} style={{ background: captain === p.id ? C.crimson : "transparent", color: captain === p.id ? C.white : C.gray, border: `1px solid ${C.crimson}50`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>C</button>
-                  <button onClick={() => toggleVC(p.id)} style={{ background: viceCaptain === p.id ? C.crimson + "30" : "transparent", color: viceCaptain === p.id ? C.crimsonLt : C.gray, border: `1px solid ${C.crimson}30`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>VC</button>
-                  <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                  <button onClick={() => toggleVC(p.id)} style={{ background: viceCaptain === p.id ? C.crimsonLt + "30" : "transparent", color: viceCaptain === p.id ? C.crimsonLt : C.gray, border: `1px solid ${C.crimsonLt}30`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>VC</button>
+                  <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>x</button>
                 </div>
               ))}
             </div>
           ))}
-
-          {/* Buttons */}
           <div style={{ marginTop: 8 }}>
             {hasSquad && !transfersOpen ? (
-              <div style={{ padding: "11px 16px", background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 12, color: C.gold, textAlign: "center" }}>
-                Transfer window closed — check back after Thursday selection
-              </div>
+              <div style={{ padding: "11px 16px", background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 12, color: C.gold, textAlign: "center" }}>Transfer window closed — check back after Thursday selection</div>
             ) : (
               <>
                 <button onClick={() => setShowPicker(true)} style={{ display: "block", width: "100%", padding: "12px", background: C.crimson, color: C.white, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 7 }}>+ Add Players</button>
@@ -611,35 +567,20 @@ function SquadPage({ players, userId }) {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
         <div style={{ paddingLeft: 24, paddingTop: 16 }}>
-          {/* Squad value */}
           <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
             <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>SQUAD SUMMARY</div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: C.grayLt }}>Total squad value</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>${spent}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: C.grayLt }}>Remaining budget</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: remaining < 80 ? C.danger : C.white }}>${remaining}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: C.grayLt }}>Players selected</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{squad.length} / {SQUAD_SIZE}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, color: C.grayLt }}>Marquee players</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: marqueeCount >= MAX_MARQUEE ? C.danger : C.white }}>{marqueeCount} / {MAX_MARQUEE}</span>
-            </div>
+            {[["Total squad value", `$${spent}`, C.gold], ["Remaining budget", `$${remaining}`, remaining < 80 ? C.danger : C.white], ["Players selected", `${squad.length} / ${SQUAD_SIZE}`, C.white], ["Marquee players", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.white]].map(([l, v, a]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: C.grayLt }}>{l}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: a }}>{v}</span>
+              </div>
+            ))}
           </div>
-
-          {/* Role breakdown */}
           <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
             <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>ROLE BREAKDOWN</div>
             {Object.entries(ROLE_LIMITS).map(([role, limit]) => {
               const count = roleCounts[role] || 0;
-              const pct = (count / limit) * 100;
               return (
                 <div key={role} style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -647,17 +588,15 @@ function SquadPage({ players, userId }) {
                     <span style={{ fontSize: 11, color: C.gray }}>{count}/{limit}</span>
                   </div>
                   <div style={{ height: 4, background: C.bgDeep, borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: ROLE_COLORS[role], borderRadius: 2, transition: "width 0.3s" }} />
+                    <div style={{ height: "100%", width: `${(count / limit) * 100}%`, background: ROLE_COLORS[role], borderRadius: 2, transition: "width 0.3s" }} />
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* Captain / VC summary */}
           <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>LEADERSHIP</div>
-            {[["Captain (2×)", captain], ["Vice Captain (1.5×)", viceCaptain]].map(([label, id]) => {
+            {[["Captain (2x)", captain], ["Vice Captain (1.5x)", viceCaptain]].map(([label, id]) => {
               const p = squad.find(x => x.id === id);
               return (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -666,18 +605,13 @@ function SquadPage({ players, userId }) {
                 </div>
               );
             })}
-            {(!captain || !viceCaptain) && (
-              <div style={{ marginTop: 8, fontSize: 11, color: C.gold, padding: "6px 10px", background: C.gold + "10", borderRadius: 6 }}>
-                Set both before saving your squad
-              </div>
-            )}
+            {(!captain || !viceCaptain) && <div style={{ marginTop: 8, fontSize: 11, color: C.gold, padding: "6px 10px", background: C.gold + "10", borderRadius: 6 }}>Set both before saving your squad</div>}
           </div>
         </div>
+      </div>
 
-      {/* Picker modal */}
       {showPicker && (
         <div style={{ position: "fixed", inset: 0, background: "#00000090", zIndex: 200, display: "flex", alignItems: "stretch", justifyContent: "center" }} onClick={() => setShowPicker(false)}>
-          {/* Floating widget */}
           <div style={{ position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", background: C.bgDeep, border: `1px solid ${C.crimson}40`, borderRadius: 40, padding: "7px 18px", display: "flex", alignItems: "center", gap: 16, zIndex: 210 }} onClick={e => e.stopPropagation()}>
             <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.gray }}>BUDGET</div><div style={{ fontSize: 16, fontWeight: 700, color: remaining < 80 ? C.danger : C.white }}>${remaining}</div></div>
             <div style={{ width: 1, height: 28, background: C.border }} />
@@ -685,9 +619,7 @@ function SquadPage({ players, userId }) {
             <div style={{ width: 1, height: 28, background: C.border }} />
             <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.gray }}>MARQUEE</div><div style={{ fontSize: 16, fontWeight: 700, color: marqueeCount >= MAX_MARQUEE ? C.danger : C.success }}>{marqueeCount}<span style={{ fontSize: 11, color: C.gray }}>/{MAX_MARQUEE}</span></div></div>
           </div>
-
           <div style={{ display: "flex", width: "100%", maxWidth: 860, marginTop: 58, overflow: "hidden" }} onClick={e => e.stopPropagation()}>
-            {/* Sidebar */}
             <div style={{ width: 230, background: C.bgDeep, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
               <div style={{ padding: "14px 12px 10px", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.crimson, letterSpacing: 1 }}>YOUR SQUAD</div>
@@ -707,7 +639,7 @@ function SquadPage({ players, userId }) {
                             <div style={{ fontSize: 11, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                             <div style={{ fontSize: 10, color: C.gold }}>${p.price}</div>
                           </div>
-                          <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 12, lineHeight: 1, flexShrink: 0, marginLeft: 4 }}>×</button>
+                          <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 12, lineHeight: 1, flexShrink: 0, marginLeft: 4 }}>x</button>
                         </div>
                       ))}
                     </div>
@@ -718,19 +650,15 @@ function SquadPage({ players, userId }) {
                 <button onClick={() => setShowPicker(false)} style={{ width: "100%", padding: "9px", borderRadius: 8, background: C.crimson, color: C.white, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Done</button>
               </div>
             </div>
-
-            {/* Player list */}
             <div style={{ flex: 1, background: C.bgDeep, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <div style={{ padding: "14px 14px 10px", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Add Players</span>
-                  <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: C.gray, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
+                  <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: C.gray, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>x</button>
                 </div>
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ width: "100%", background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 7, padding: "7px 11px", fontSize: 12, outline: "none", marginBottom: 8 }} />
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {["ALL","BAT","BOWL","AR","WK"].map(r => (
-                    <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? C.crimson + "20" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 11, fontWeight: 500 }}>{r === "ALL" ? "All" : ROLE_LABELS[r]}</button>
-                  ))}
+                  {["ALL", "BAT", "BOWL", "AR", "WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? C.crimson + "20" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 11, fontWeight: 500 }}>{r === "ALL" ? "All" : ROLE_LABELS[r]}</button>)}
                 </div>
               </div>
               <div style={{ overflowY: "auto", padding: "5px 10px 16px" }}>
@@ -763,38 +691,66 @@ function SquadPage({ players, userId }) {
           </div>
         </div>
       )}
-      </div>
+
+      {showGwBreakdown && (
+        <Modal title={`GW${ACTIVE_GW} Points Breakdown`} onClose={() => setShowGwBreakdown(false)}>
+          {loadingBreakdown ? <Spinner label="Loading..." /> : (
+            gwBreakdown.length === 0 ? <div style={{ textAlign: "center", color: C.gray, padding: "20px 0" }}>No scores calculated yet for this gameweek.</div> : (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 70px", padding: "7px 10px", fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
+                  <span>PLAYER</span><span style={{ textAlign: "right" }}>BASE</span><span style={{ textAlign: "right" }}>FINAL</span>
+                </div>
+                {gwBreakdown.map(({ player, basePts, finalPts, isCaptain, isVC }) => (
+                  <div key={player?.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 70px", padding: "8px 10px", borderBottom: `1px solid ${C.border}`, alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: C.white, display: "flex", alignItems: "center", gap: 6 }}>
+                        {player?.name || "Unknown"}
+                        {isCaptain && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>C</span>}
+                        {isVC && <span style={{ background: C.crimsonLt + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>VC</span>}
+                      </div>
+                      {player && <div style={{ marginTop: 2 }}><RoleBadge role={player.role} /></div>}
+                    </div>
+                    <span style={{ textAlign: "right", fontSize: 13, color: C.gray }}>{basePts}</span>
+                    <span style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: finalPts > 0 ? C.crimson : C.gray }}>{finalPts}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 10px 0", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>Total</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: C.crimson }}>{gwBreakdown.reduce((s, r) => s + r.finalPts, 0)}</span>
+                </div>
+              </div>
+            )
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
 
-// --- PLAYERS PAGE ----------------------------------------------------------------
+// --- PLAYERS PAGE ---
 
 function PlayersPage({ players }) {
   const [sort, setSort] = useState("price");
   const [filterRole, setFilterRole] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const filtered = useMemo(() => players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))).sort((a, b) => b[sort] - a[sort]), [players, sort, filterRole, search]);
   return (
     <div style={{ padding: "0 32px 48px" }}>
-      <Header title="Player Database" sub={`${players.length} players · Season 2026–27`} />
+      <Header title="Player Database" sub={`${players.length} players · Season 2026-27`} />
       <div style={{ display: "flex", gap: 8, padding: "16px 0 14px", flexWrap: "wrap", alignItems: "center" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 8, padding: "7px 12px", fontSize: 12, outline: "none", minWidth: 180 }} />
-        {["ALL","BAT","BOWL","AR","WK"].map(r => (
-          <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? C.crimson + "15" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>{r === "ALL" ? "All Roles" : ROLE_LABELS[r]}</button>
-        ))}
+        {["ALL", "BAT", "BOWL", "AR", "WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? C.crimson + "15" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>{r === "ALL" ? "All Roles" : ROLE_LABELS[r]}</button>)}
         <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
-          {[["price","Price"],["pts","Points"],["mp","Matches"]].map(([k,l]) => (
-            <button key={k} onClick={() => setSort(k)} style={{ padding: "6px 11px", borderRadius: 7, border: `1px solid ${sort === k ? C.crimson : C.border}`, background: sort === k ? C.crimson + "15" : "transparent", color: sort === k ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>Sort: {l}</button>
-          ))}
+          {[["price", "Price"], ["pts", "Points"], ["mp", "Matches"]].map(([k, l]) => <button key={k} onClick={() => setSort(k)} style={{ padding: "6px 11px", borderRadius: 7, border: `1px solid ${sort === k ? C.crimson : C.border}`, background: sort === k ? C.crimson + "15" : "transparent", color: sort === k ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>Sort: {l}</button>)}
         </div>
       </div>
       <div style={{ background: C.bgCard, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 60px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 80px 50px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.8 }}>
           <span>PLAYER</span><span>PRICE</span><span>SEASON PTS</span><span>MP</span>
         </div>
         {filtered.map((p, i) => (
-          <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 60px", padding: "10px 16px", borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+          <div key={p.id} onClick={() => setSelectedPlayer(p)} style={{ display: "grid", gridTemplateColumns: "1fr 70px 80px 50px", padding: "10px 16px", borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", transition: "background 0.1s", cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 500, color: C.white, display: "flex", alignItems: "center", gap: 6 }}>
                 {p.name}
@@ -804,89 +760,108 @@ function PlayersPage({ players }) {
             </div>
             <span style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>${p.price}</span>
             <span style={{ fontSize: 13, color: C.whiteD, fontWeight: 500 }}>{p.pts}</span>
-            <span style={{ fontSize: 12, color: C.gray }}>{p.mp > 0 ? p.mp : "—"}</span>
+            <span style={{ fontSize: 12, color: C.gray }}>{p.mp}</span>
           </div>
         ))}
       </div>
+      <div style={{ marginTop: 10, fontSize: 12, color: C.gray, textAlign: "center" }}>Click any player to view their stats</div>
+      {selectedPlayer && <PlayerProfileModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
     </div>
   );
 }
 
-// --- LEADERBOARD PAGE ------------------------------------------------------------
+// --- VIEW TEAMS PAGE ---
 
-function LeaderboardPage() {
-  const [entries, setEntries] = useState([]);
+function ViewTeamsPage({ players }) {
+  const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transfersOpen, setTransfersOpen] = useState(true);
+  const [selectedTeam, setSelectedTeam] = useState(null);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, team_name, username, total_pts")
-        .order("total_pts", { ascending: false });
-      if (data) setEntries(data);
+    const load = async () => {
+      const { data: gwData } = await supabase.from("gameweeks").select("transfers_open").eq("number", ACTIVE_GW).single();
+      if (gwData) setTransfersOpen(gwData.transfers_open);
+      if (!gwData?.transfers_open) {
+        const { data: profiles } = await supabase.from("profiles").select("id, team_name, username, total_pts");
+        const { data: squads } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", ACTIVE_GW);
+        if (profiles && squads) {
+          const result = profiles.map(prof => {
+            const squadEntries = squads.filter(s => s.user_id === prof.id);
+            const squadPlayers = squadEntries.map(entry => ({
+              ...players.find(p => p.id === entry.player_id),
+              is_captain: entry.is_captain,
+              is_vice_captain: entry.is_vice_captain,
+            })).filter(Boolean);
+            return { ...prof, squad: squadPlayers };
+          }).filter(t => t.squad.length > 0);
+          setTeams(result);
+        }
+      }
       setLoading(false);
     };
-    fetch();
-  }, []);
+    if (players.length > 0) load();
+  }, [players]);
 
-  const hasPoints = entries.some(e => e.total_pts > 0);
+  if (loading) return <Spinner label="Loading teams..." />;
 
   return (
     <div style={{ padding: "0 32px 48px" }}>
-      <Header title="Leaderboard" sub="Season 2026–27" />
-      {loading ? <Spinner label="Loading..." /> : (
+      <Header title="View Teams" sub={`Gameweek ${ACTIVE_GW} squads`} />
+      {transfersOpen ? (
+        <div style={{ padding: "60px 0", textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: C.gold + "20", border: `1px solid ${C.gold}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>&#128274;</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: C.white, marginBottom: 8 }}>Transfer window is open</div>
+          <div style={{ fontSize: 13, color: C.gray }}>Other managers' squads are hidden until the window closes on Friday night.</div>
+        </div>
+      ) : teams.length === 0 ? (
+        <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No squads submitted yet.</div>
+      ) : (
         <div style={{ paddingTop: 20 }}>
-
-          {/* Podium — only show when points exist */}
-          {hasPoints && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
-              {entries.slice(0, 3).map((p, i) => (
-                <div key={p.id} style={{ background: i === 0 ? C.crimson + "15" : C.bgCard, borderRadius: 12, padding: "18px 14px", border: `1px solid ${i === 0 ? C.crimson + "40" : C.border}`, textAlign: "center" }}>
-                  <div style={{ fontSize: 22, marginBottom: 5 }}>{["🥇","🥈","🥉"][i]}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{p.team_name || p.username}</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD, marginTop: 8 }}>{p.total_pts}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>total points</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Full table — everyone, sorted by points when available otherwise registration order */}
-          <div style={{ background: C.bgCard, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.8 }}>
-              <span>#</span>
-              <span>MANAGER</span>
-              <span style={{ textAlign: "right" }}>{hasPoints ? "TOTAL PTS" : "REGISTERED"}</span>
-            </div>
-            {entries.length === 0 ? (
-              <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No members yet — be the first to sign up!</div>
-            ) : entries.map((p, i) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: hasPoints && i < 3 ? C.crimson : C.gray }}>{i + 1}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>
-                    {(p.team_name || p.username || "?")[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{p.team_name || "Unnamed Team"}</div>
-                    <div style={{ fontSize: 11, color: C.gray }}>{p.username}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
+            {teams.map(team => (
+              <div key={team.id} onClick={() => setSelectedTeam(selectedTeam?.id === team.id ? null : team)} style={{ background: selectedTeam?.id === team.id ? C.crimson + "20" : C.bgCard, borderRadius: 12, padding: "16px", border: `1px solid ${selectedTeam?.id === team.id ? C.crimson + "60" : C.border}`, cursor: "pointer", transition: "all 0.15s" }} onMouseEnter={e => e.currentTarget.style.borderColor = C.crimson + "40"} onMouseLeave={e => e.currentTarget.style.borderColor = selectedTeam?.id === team.id ? C.crimson + "60" : C.border}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>{(team.team_name || team.username || "?")[0].toUpperCase()}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{team.team_name || "Unnamed Team"}</div>
+                    <div style={{ fontSize: 11, color: C.gray }}>{team.username}</div>
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  {hasPoints ? (
-                    <span style={{ fontSize: 14, color: hasPoints && i < 3 ? C.crimson : C.whiteD, fontWeight: 700 }}>{p.total_pts}</span>
-                  ) : (
-                    <span style={{ fontSize: 11, color: C.gray }}>Joined</span>
-                  )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ color: C.gray }}>{team.squad.length} players</span>
+                  <span style={{ color: C.gold, fontWeight: 600 }}>{team.total_pts} pts</span>
                 </div>
               </div>
             ))}
           </div>
-
-          {!hasPoints && (
-            <div style={{ marginTop: 12, padding: "10px 14px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.gray, textAlign: "center" }}>
-              Points will appear here once the first gameweek is calculated
+          {selectedTeam && (
+            <div style={{ background: C.bgCard, borderRadius: 14, padding: "20px", border: `1px solid ${C.crimson}30`, animation: "slideIn 0.2s ease" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.white, marginBottom: 4 }}>{selectedTeam.team_name || "Unnamed Team"}</div>
+              <div style={{ fontSize: 12, color: C.gray, marginBottom: 16 }}>{selectedTeam.username} · {selectedTeam.squad.length} players</div>
+              {Object.entries({ BAT: [], BOWL: [], AR: [], WK: [] }).map(([role]) => {
+                const rp = selectedTeam.squad.filter(p => p.role === role);
+                if (rp.length === 0) return null;
+                return (
+                  <div key={role} style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 9, color: ROLE_COLORS[role], fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>{ROLE_LABELS[role].toUpperCase()}S</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 6 }}>
+                      {rp.map(p => (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: C.bgDeep, borderRadius: 8, border: `1px solid ${p.is_captain ? C.crimson : p.is_vice_captain ? C.crimsonLt + "60" : C.border}` }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.white, display: "flex", alignItems: "center", gap: 5 }}>
+                              {p.name}
+                              {p.is_captain && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>C</span>}
+                              {p.is_vice_captain && <span style={{ background: C.crimsonLt + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>VC</span>}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 11, color: C.gold, fontWeight: 600, flexShrink: 0 }}>${p.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -895,51 +870,329 @@ function LeaderboardPage() {
   );
 }
 
-// --- HOW TO PLAY -----------------------------------------------------------------
+// --- LEADERBOARD PAGE ---
+
+function LeaderboardPage() {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase.from("profiles").select("id, team_name, username, total_pts").order("total_pts", { ascending: false });
+      if (data) setEntries(data);
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+  const hasPoints = entries.some(e => e.total_pts > 0);
+  return (
+    <div style={{ padding: "0 32px 48px" }}>
+      <Header title="Leaderboard" sub="Season 2026-27" />
+      {loading ? <Spinner label="Loading..." /> : (
+        <div style={{ paddingTop: 20 }}>
+          {hasPoints && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
+              {entries.slice(0, 3).map((p, i) => (
+                <div key={p.id} style={{ background: i === 0 ? C.crimson + "15" : C.bgCard, borderRadius: 12, padding: "18px 14px", border: `1px solid ${i === 0 ? C.crimson + "40" : C.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 5 }}>{["1st", "2nd", "3rd"][i]}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{p.team_name || p.username}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD, marginTop: 8 }}>{p.total_pts}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>total points</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ background: C.bgCard, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.8 }}>
+              <span>#</span><span>MANAGER</span><span style={{ textAlign: "right" }}>TOTAL PTS</span>
+            </div>
+            {entries.length === 0 ? (
+              <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No members yet.</div>
+            ) : entries.map((p, i) => (
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: hasPoints && i < 3 ? C.crimson : C.gray }}>{i + 1}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>{(p.team_name || p.username || "?")[0].toUpperCase()}</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{p.team_name || "Unnamed Team"}</div>
+                    <div style={{ fontSize: 11, color: C.gray }}>{p.username}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: 14, color: hasPoints && i < 3 ? C.crimson : C.whiteD, fontWeight: 700 }}>{p.total_pts}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {!hasPoints && <div style={{ marginTop: 12, padding: "10px 14px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.gray, textAlign: "center" }}>Points will appear here once the first gameweek is calculated</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- GAMEWEEK HISTORY PAGE ---
+
+function HistoryPage() {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedGw, setExpandedGw] = useState(null);
+  const [gwDetails, setGwDetails] = useState({});
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("fantasy_points").select("gameweek_id, total_pts, user_id, profiles(team_name, username)").order("gameweek_id", { ascending: false });
+      if (data) {
+        const grouped = {};
+        data.forEach(row => {
+          if (!grouped[row.gameweek_id]) grouped[row.gameweek_id] = [];
+          grouped[row.gameweek_id].push(row);
+        });
+        const gws = Object.entries(grouped).map(([gw, entries]) => {
+          const pts = entries.map(e => e.total_pts);
+          return { gw: parseInt(gw), entries: entries.sort((a, b) => b.total_pts - a.total_pts), high: Math.max(...pts), avg: Math.round(pts.reduce((a, b) => a + b, 0) / pts.length) };
+        });
+        setHistory(gws);
+      }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const toggleGw = (gw) => setExpandedGw(expandedGw === gw ? null : gw);
+
+  return (
+    <div style={{ padding: "0 32px 48px" }}>
+      <Header title="Gameweek History" sub="All past gameweeks and scores" />
+      {loading ? <Spinner label="Loading history..." /> : history.length === 0 ? (
+        <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No gameweeks completed yet — season starts soon!</div>
+      ) : (
+        <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+          {history.map(({ gw, entries, high, avg }) => (
+            <div key={gw} style={{ background: C.bgCard, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
+              <div onClick={() => toggleGw(gw)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 16 }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <div style={{ background: C.crimson + "20", border: `1px solid ${C.crimson}40`, borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>GW{gw}</div>
+                <div style={{ flex: 1, display: "flex", gap: 24 }}>
+                  <div><div style={{ fontSize: 10, color: C.gray, marginBottom: 2 }}>HIGH SCORE</div><div style={{ fontSize: 16, fontWeight: 700, color: C.success }}>{high}</div></div>
+                  <div><div style={{ fontSize: 10, color: C.gray, marginBottom: 2 }}>AVERAGE</div><div style={{ fontSize: 16, fontWeight: 700, color: C.gold }}>{avg}</div></div>
+                  <div><div style={{ fontSize: 10, color: C.gray, marginBottom: 2 }}>MANAGERS</div><div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{entries.length}</div></div>
+                </div>
+                <div style={{ fontSize: 14, color: C.gray }}>{expandedGw === gw ? "^" : "v"}</div>
+              </div>
+              {expandedGw === gw && (
+                <div style={{ borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 80px", padding: "8px 18px", fontSize: 10, color: C.gray, fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${C.border}` }}>
+                    <span>#</span><span>TEAM</span><span style={{ textAlign: "right" }}>PTS</span>
+                  </div>
+                  {entries.map((e, i) => (
+                    <div key={e.user_id} style={{ display: "grid", gridTemplateColumns: "36px 1fr 80px", padding: "10px 18px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? C.crimson : C.gray }}>{i + 1}</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: C.white }}>{e.profiles?.team_name || "Unnamed Team"}</div>
+                        <div style={{ fontSize: 11, color: C.gray }}>{e.profiles?.username}</div>
+                      </div>
+                      <span style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD }}>{e.total_pts}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- SEASON STATS PAGE ---
+
+function StatsPage({ players }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const [scoresRes, ptsRes] = await Promise.all([
+        supabase.from("gameweek_scores").select("player_id, runs, wickets, calculated_pts, gameweek_id"),
+        supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, username)"),
+      ]);
+      const scores = scoresRes.data || [];
+      const pts = ptsRes.data || [];
+
+      // Top scorer (most runs)
+      const runsByPlayer = {};
+      scores.forEach(s => { runsByPlayer[s.player_id] = (runsByPlayer[s.player_id] || 0) + (s.runs || 0); });
+      const topScorerEntry = Object.entries(runsByPlayer).sort((a, b) => b[1] - a[1])[0];
+      const topScorer = topScorerEntry ? { player: players.find(p => p.id === parseInt(topScorerEntry[0])), runs: topScorerEntry[1] } : null;
+
+      // Top wicket taker
+      const wktsByPlayer = {};
+      scores.forEach(s => { wktsByPlayer[s.player_id] = (wktsByPlayer[s.player_id] || 0) + (s.wickets || 0); });
+      const topWktEntry = Object.entries(wktsByPlayer).sort((a, b) => b[1] - a[1])[0];
+      const topWicketer = topWktEntry ? { player: players.find(p => p.id === parseInt(topWktEntry[0])), wickets: topWktEntry[1] } : null;
+
+      // Best fantasy performer (total pts across all GWs per user)
+      const userPts = {};
+      pts.forEach(r => { if (!userPts[r.user_id] || r.total_pts > userPts[r.user_id].pts) userPts[r.user_id] = { pts: r.total_pts, profile: r.profiles }; });
+      const bestFantasy = Object.values(userPts).sort((a, b) => b.pts - a.pts)[0] || null;
+
+      // Top 5 most picked players (from squads table)
+      const { data: squadData } = await supabase.from("squads").select("player_id");
+      const pickCounts = {};
+      (squadData || []).forEach(s => { pickCounts[s.player_id] = (pickCounts[s.player_id] || 0) + 1; });
+      const topPicked = Object.entries(pickCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([pid, count]) => ({ player: players.find(p => p.id === parseInt(pid)), count })).filter(x => x.player);
+
+      setStats({ topScorer, topWicketer, bestFantasy, topPicked });
+      setLoading(false);
+    };
+    if (players.length > 0) load();
+  }, [players]);
+
+  if (loading) return <Spinner label="Loading season stats..." />;
+
+  const StatBlock = ({ title, accent, children }) => (
+    <div style={{ background: C.bgCard, borderRadius: 12, padding: "20px", border: `1px solid ${accent}30`, marginBottom: 14 }}>
+      <div style={{ fontSize: 10, color: accent, letterSpacing: 2, fontWeight: 700, marginBottom: 14 }}>{title}</div>
+      {children}
+    </div>
+  );
+
+  const noData = <div style={{ fontSize: 13, color: C.gray }}>No data yet — check back after gameweek 1.</div>;
+
+  return (
+    <div style={{ padding: "0 32px 48px" }}>
+      <Header title="Season Stats" sub="2026-27 season at a glance" />
+      <div style={{ paddingTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+
+        <StatBlock title="TOP RUN SCORER" accent={C.indigo}>
+          {!topScorer?.player ? noData : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{stats.topScorer.player.name}</div>
+                <div style={{ marginTop: 4 }}><RoleBadge role={stats.topScorer.player.role} /></div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: C.indigo }}>{stats.topScorer.runs}</div>
+                <div style={{ fontSize: 10, color: C.gray }}>RUNS</div>
+              </div>
+            </div>
+          )}
+        </StatBlock>
+
+        <StatBlock title="TOP WICKET TAKER" accent={C.gold}>
+          {!stats?.topWicketer?.player ? noData : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{stats.topWicketer.player.name}</div>
+                <div style={{ marginTop: 4 }}><RoleBadge role={stats.topWicketer.player.role} /></div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: C.gold }}>{stats.topWicketer.wickets}</div>
+                <div style={{ fontSize: 10, color: C.gray }}>WICKETS</div>
+              </div>
+            </div>
+          )}
+        </StatBlock>
+
+        <StatBlock title="BEST FANTASY PERFORMER" accent={C.crimson}>
+          {!stats?.bestFantasy ? noData : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>
+                {(stats.bestFantasy.profile?.team_name || "?")[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{stats.bestFantasy.profile?.team_name || "Unnamed Team"}</div>
+                <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>{stats.bestFantasy.profile?.username}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: C.crimson }}>{stats.bestFantasy.pts}</div>
+                <div style={{ fontSize: 10, color: C.gray }}>TOTAL PTS</div>
+              </div>
+            </div>
+          )}
+        </StatBlock>
+
+        <StatBlock title="MOST PICKED PLAYERS" accent={C.success}>
+          {stats?.topPicked?.length === 0 ? noData : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(stats?.topPicked || []).map(({ player, count }, i) => (
+                <div key={player.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.success + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.success, flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: C.white }}>{player.name}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ height: 4, width: 60, background: C.bgDeep, borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${(count / ((stats?.topPicked?.[0]?.count) || 1)) * 100}%`, background: C.success, borderRadius: 2 }} />
+                    </div>
+                    <span style={{ fontSize: 12, color: C.success, fontWeight: 600, minWidth: 24 }}>{count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </StatBlock>
+      </div>
+    </div>
+  );
+}
+
+// --- HOW TO PLAY PAGE ---
 
 function HowToPlayPage() {
+  const [openRule, setOpenRule] = useState(null);
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="How to Play" sub="Everything you need to know about OCC Fantasy" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "20px 0 20px" }}>
-        {RULES.map((r, i) => (
-          <div key={i} style={{ background: C.bgCard, borderRadius: 10, padding: "14px 16px", border: `1px solid ${C.border}`, display: "flex", gap: 10 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0, background: C.crimson + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.crimson }}>{i + 1}</div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.white, marginBottom: 3 }}>{r.title}</div>
-              <div style={{ fontSize: 11, color: C.gray, lineHeight: 1.6 }}>{r.desc}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ background: C.bgCard, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: C.white, marginBottom: 14 }}>Scoring System</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-          {SCORING.map((s, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i % 2 === 0 ? C.bgDeep : "transparent", borderRadius: 5 }}>
-              <span style={{ fontSize: 12, color: C.gray }}>{s.label}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.white }}>{s.value}</span>
+      <div style={{ paddingTop: 20 }}>
+        {/* Quick scoring reminder */}
+        <div style={{ background: C.crimson + "10", border: `1px solid ${C.crimson}30`, borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 10, color: C.crimson, fontWeight: 700, letterSpacing: 1 }}>QUICK SCORING GUIDE</div>
+          {[["Run", "1pt"], ["4", "+4pt"], ["6", "+6pt"], ["50", "+20pt"], ["100", "+35pt"], ["Wkt", "10pt"], ["Catch", "15pt"]].map(([l, v]) => (
+            <div key={l} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.white }}>{v}</div>
+              <div style={{ fontSize: 10, color: C.gray }}>{l}</div>
             </div>
           ))}
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 12, fontWeight: 700, color: C.gold }}>2x</div><div style={{ fontSize: 10, color: C.gray }}>Capt.</div></div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          {RULES.map((r, i) => (
+            <div key={i} onClick={() => setOpenRule(openRule === i ? null : i)} style={{ background: C.bgCard, borderRadius: 10, padding: "14px 16px", border: `1px solid ${openRule === i ? C.crimson + "50" : C.border}`, display: "flex", gap: 10, cursor: "pointer", transition: "border-color 0.15s" }}>
+              <div style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0, background: C.crimson + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.crimson }}>{i + 1}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.white, marginBottom: openRule === i ? 6 : 0 }}>{r.title}</div>
+                {openRule === i && <div style={{ fontSize: 12, color: C.gray, lineHeight: 1.6 }}>{r.desc}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: C.bgCard, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 14 }}>Full Scoring System</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+            {SCORING.map((s, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i % 2 === 0 ? C.bgDeep : "transparent", borderRadius: 5 }}>
+                <span style={{ fontSize: 12, color: C.gray }}>{s.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.white }}>{s.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// --- ADMIN PAGE ------------------------------------------------------------------
+// --- ADMIN PAGE ---
 
 function AdminPage({ players }) {
   const [gw, setGw] = useState(ACTIVE_GW);
   const [scores, setScores] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [calculating, setCalculating] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [msgType, setMsgType] = useState("success");
-  const [search, setSearch] = useState("");
-  const [existingScores, setExistingScores] = useState({});
-  const [transfersOpen, setTransfersOpen] = useState(false);
-  const [togglingWindow, setTogglingWindow] = useState(false);
+  const [saving, setSaving] = useState(false); const [calculating, setCalculating] = useState(false);
+  const [msg, setMsg] = useState(""); const [msgType, setMsgType] = useState("success");
+  const [search, setSearch] = useState(""); const [existingScores, setExistingScores] = useState({});
+  const [transfersOpen, setTransfersOpen] = useState(false); const [togglingWindow, setTogglingWindow] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -953,6 +1206,14 @@ function AdminPage({ players }) {
     load();
   }, [gw]);
 
+  const getVal = (pid, field) => {
+    if (scores[pid]?.[field] !== undefined) return scores[pid][field];
+    if (existingScores[pid]?.[field] !== undefined) return existingScores[pid][field];
+    return field.startsWith("did_") || field.startsWith("was_") || field.startsWith("five_") || field.startsWith("three_") ? false : 0;
+  };
+  const setVal = (pid, field, value) => setScores(s => ({ ...s, [pid]: { ...(s[pid] || {}), [field]: value } }));
+  const preview = (pid) => calcPoints({ runs: getVal(pid, "runs"), fours: getVal(pid, "fours"), sixes: getVal(pid, "sixes"), wickets: getVal(pid, "wickets"), catches: getVal(pid, "catches"), run_outs: getVal(pid, "run_outs"), stumpings: getVal(pid, "stumpings"), no_balls: getVal(pid, "no_balls"), wides: getVal(pid, "wides"), did_bat: getVal(pid, "did_bat"), was_dismissed: getVal(pid, "was_dismissed"), five_fer: getVal(pid, "five_fer"), three_fer: getVal(pid, "three_fer") });
+
   const toggleTransferWindow = async () => {
     setTogglingWindow(true);
     const newVal = !transfersOpen;
@@ -962,18 +1223,10 @@ function AdminPage({ players }) {
     setTogglingWindow(false);
   };
 
-  const getVal = (pid, field) => {
-    if (scores[pid]?.[field] !== undefined) return scores[pid][field];
-    if (existingScores[pid]?.[field] !== undefined) return existingScores[pid][field];
-    return field.startsWith("did_") || field.startsWith("was_") || field.startsWith("five_") || field.startsWith("three_") ? false : 0;
-  };
-  const setVal = (pid, field, value) => setScores(s => ({ ...s, [pid]: { ...(s[pid] || {}), [field]: value } }));
-  const preview = (pid) => calcPoints({ runs: getVal(pid,"runs"), fours: getVal(pid,"fours"), sixes: getVal(pid,"sixes"), wickets: getVal(pid,"wickets"), catches: getVal(pid,"catches"), run_outs: getVal(pid,"run_outs"), stumpings: getVal(pid,"stumpings"), no_balls: getVal(pid,"no_balls"), wides: getVal(pid,"wides"), did_bat: getVal(pid,"did_bat"), was_dismissed: getVal(pid,"was_dismissed"), five_fer: getVal(pid,"five_fer"), three_fer: getVal(pid,"three_fer") });
-
   const saveScores = async () => {
     setSaving(true); setMsg("");
     const rows = players.map(p => {
-      const s = { runs: getVal(p.id,"runs"), fours: getVal(p.id,"fours"), sixes: getVal(p.id,"sixes"), wickets: getVal(p.id,"wickets"), catches: getVal(p.id,"catches"), run_outs: getVal(p.id,"run_outs"), stumpings: getVal(p.id,"stumpings"), no_balls: getVal(p.id,"no_balls"), wides: getVal(p.id,"wides"), did_bat: getVal(p.id,"did_bat"), was_dismissed: getVal(p.id,"was_dismissed"), five_fer: getVal(p.id,"five_fer"), three_fer: getVal(p.id,"three_fer") };
+      const s = { runs: getVal(p.id, "runs"), fours: getVal(p.id, "fours"), sixes: getVal(p.id, "sixes"), wickets: getVal(p.id, "wickets"), catches: getVal(p.id, "catches"), run_outs: getVal(p.id, "run_outs"), stumpings: getVal(p.id, "stumpings"), no_balls: getVal(p.id, "no_balls"), wides: getVal(p.id, "wides"), did_bat: getVal(p.id, "did_bat"), was_dismissed: getVal(p.id, "was_dismissed"), five_fer: getVal(p.id, "five_fer"), three_fer: getVal(p.id, "three_fer") };
       return { player_id: p.id, gameweek_id: gw, ...s, calculated_pts: calcPoints(s) };
     });
     const { error } = await supabase.from("gameweek_scores").upsert(rows, { onConflict: "player_id,gameweek_id" });
@@ -985,7 +1238,7 @@ function AdminPage({ players }) {
   const calculatePoints = async () => {
     setCalculating(true); setMsg("");
     const { data: squadData } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", gw);
-    if (!squadData || squadData.length === 0) { setMsg("No squads found for this gameweek."); setMsgType("danger"); setCalculating(false); return; }
+    if (!squadData || squadData.length === 0) { setMsg("No squads found."); setMsgType("danger"); setCalculating(false); return; }
     const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", gw);
     const scoreMap = {};
     if (scoreData) scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
@@ -994,16 +1247,22 @@ function AdminPage({ players }) {
     const pointsRows = Object.entries(userSquads).map(([userId, squad]) => {
       let total = 0;
       squad.forEach(entry => { let pts = scoreMap[entry.player_id] || 0; if (entry.is_captain) pts *= 2; else if (entry.is_vice_captain) pts *= 1.5; total += pts; });
-      return { user_id: userId, gameweek_id: gw, raw_pts: total, total_pts: total };
+      return { user_id: userId, gameweek_id: gw, raw_pts: Math.round(total), total_pts: Math.round(total) };
     });
-    const { error: fpError } = await supabase.from("fantasy_points").upsert(pointsRows, { onConflict: "user_id,gameweek_id" });
-    if (fpError) { setMsg("Error calculating: " + fpError.message); setMsgType("danger"); setCalculating(false); return; }
+    await supabase.from("fantasy_points").upsert(pointsRows, { onConflict: "user_id,gameweek_id" });
     for (const { user_id } of pointsRows) {
       const { data: allPts } = await supabase.from("fantasy_points").select("total_pts").eq("user_id", user_id);
       const grand = allPts ? allPts.reduce((s, r) => s + (r.total_pts || 0), 0) : 0;
       await supabase.from("profiles").update({ total_pts: grand }).eq("id", user_id);
     }
-    setMsg(`Points calculated for ${pointsRows.length} managers!`); setMsgType("success");
+    // Update player season pts and mp
+    const { data: allGwScores } = await supabase.from("gameweek_scores").select("player_id, calculated_pts");
+    const playerPts = {}; const playerMp = {};
+    (allGwScores || []).forEach(s => { playerPts[s.player_id] = (playerPts[s.player_id] || 0) + (s.calculated_pts || 0); playerMp[s.player_id] = (playerMp[s.player_id] || 0) + 1; });
+    for (const [pid, pts] of Object.entries(playerPts)) {
+      await supabase.from("players").update({ pts, mp: playerMp[pid] || 0 }).eq("id", parseInt(pid));
+    }
+    setMsg(`Points calculated for ${pointsRows.length} managers! Player stats updated.`); setMsgType("success");
     setCalculating(false);
   };
 
@@ -1026,8 +1285,6 @@ function AdminPage({ players }) {
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="Admin Panel" sub="Score entry · Points calculation · Transfer window" />
-
-      {/* Controls row */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0 12px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <span style={{ fontSize: 12, color: C.gray }}>Gameweek</span>
@@ -1036,15 +1293,9 @@ function AdminPage({ players }) {
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 7, padding: "6px 11px", fontSize: 12, outline: "none", minWidth: 170 }} />
         <button onClick={saveScores} disabled={saving} style={{ padding: "8px 16px", borderRadius: 7, border: "none", background: saving ? C.bgCard : C.gold, color: C.bgDeep, fontWeight: 700, fontSize: 12, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save Scores"}</button>
         <button onClick={calculatePoints} disabled={calculating} style={{ padding: "8px 16px", borderRadius: 7, border: "none", background: calculating ? C.bgCard : C.success, color: C.white, fontWeight: 700, fontSize: 12, cursor: calculating ? "default" : "pointer" }}>{calculating ? "Calculating..." : "Calculate Points"}</button>
-        {/* Transfer window toggle */}
-        <button onClick={toggleTransferWindow} disabled={togglingWindow} style={{ padding: "8px 16px", borderRadius: 7, border: `1px solid ${transfersOpen ? C.success : C.crimson}50`, background: transfersOpen ? C.success + "15" : C.crimson + "15", color: transfersOpen ? C.success : C.crimson, fontWeight: 700, fontSize: 12, cursor: togglingWindow ? "default" : "pointer" }}>
-          {togglingWindow ? "Updating..." : transfersOpen ? "Close Transfer Window" : "Open Transfer Window"}
-        </button>
+        <button onClick={toggleTransferWindow} disabled={togglingWindow} style={{ padding: "8px 16px", borderRadius: 7, border: `1px solid ${transfersOpen ? C.success : C.crimson}50`, background: transfersOpen ? C.success + "15" : C.crimson + "15", color: transfersOpen ? C.success : C.crimson, fontWeight: 700, fontSize: 12, cursor: togglingWindow ? "default" : "pointer" }}>{togglingWindow ? "Updating..." : transfersOpen ? "Close Transfer Window" : "Open Transfer Window"}</button>
       </div>
-
       {msg && <div style={{ marginBottom: 14, padding: "9px 14px", borderRadius: 7, fontSize: 12, background: C[msgType] + "15", color: C[msgType], border: `1px solid ${C[msgType]}30` }}>{msg}</div>}
-
-      {/* Score entry rows */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {filtered.map(p => (
           <div key={p.id} style={{ background: C.bgCard, borderRadius: 10, padding: "12px 14px", border: `1px solid ${existingScores[p.id] ? C.success + "25" : C.border}` }}>
@@ -1061,22 +1312,16 @@ function AdminPage({ players }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div>
-                <div style={{ fontSize: 9, color: "#818CF8", fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>BATTING</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  {numField(p.id,"runs","Runs",68)}{numField(p.id,"fours","4s",52)}{numField(p.id,"sixes","6s",52)}{boolField(p.id,"did_bat","Batted")}{boolField(p.id,"was_dismissed","Out")}
-                </div>
+                <div style={{ fontSize: 9, color: C.indigo, fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>BATTING</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "runs", "Runs", 68)}{numField(p.id, "fours", "4s", 52)}{numField(p.id, "sixes", "6s", 52)}{boolField(p.id, "did_bat", "Batted")}{boolField(p.id, "was_dismissed", "Out")}</div>
               </div>
               <div>
                 <div style={{ fontSize: 9, color: C.gold, fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>BOWLING</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  {numField(p.id,"wickets","Wkts",60)}{numField(p.id,"no_balls","NB",52)}{numField(p.id,"wides","Wides",60)}{boolField(p.id,"three_fer","3W")}{boolField(p.id,"five_fer","5W")}
-                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "wickets", "Wkts", 60)}{numField(p.id, "no_balls", "NB", 52)}{numField(p.id, "wides", "Wides", 60)}{boolField(p.id, "three_fer", "3W")}{boolField(p.id, "five_fer", "5W")}</div>
               </div>
               <div>
                 <div style={{ fontSize: 9, color: C.success, fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>FIELDING</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  {numField(p.id,"catches","Catches",68)}{numField(p.id,"run_outs","Run Outs",68)}{numField(p.id,"stumpings","Stmpgs",68)}
-                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "catches", "Catches", 68)}{numField(p.id, "run_outs", "Run Outs", 68)}{numField(p.id, "stumpings", "Stmpgs", 68)}</div>
               </div>
             </div>
           </div>
@@ -1086,7 +1331,7 @@ function AdminPage({ players }) {
   );
 }
 
-// --- APP ROOT --------------------------------------------------------------------
+// --- APP ROOT ---
 
 export default function App() {
   const [page, setPage] = useState("squad");
@@ -1098,13 +1343,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) loadAppData(session.user.id);
-      else setLoading(false);
+      if (session) loadAppData(session.user.id); else setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) loadAppData(session.user.id);
-      else { setPlayers([]); setProfile(null); setLoading(false); }
+      if (session) loadAppData(session.user.id); else { setPlayers([]); setProfile(null); setLoading(false); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -1135,6 +1378,9 @@ export default function App() {
       {page === "squad" && <SquadPage players={players} userId={session.user.id} />}
       {page === "players" && <PlayersPage players={players} />}
       {page === "leaderboard" && <LeaderboardPage />}
+      {page === "teams" && <ViewTeamsPage players={players} />}
+      {page === "history" && <HistoryPage />}
+      {page === "stats" && <StatsPage players={players} />}
       {page === "howtoplay" && <HowToPlayPage />}
       {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
       {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} />}
