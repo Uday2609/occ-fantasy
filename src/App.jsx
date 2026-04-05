@@ -231,13 +231,15 @@ function Nav({ page, setPage, user, profile, onLogout }) {
     ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
   return (
-    <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px", overflowX: "auto" }}>
+    <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
         <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>&#127955;</div>
         <div><div style={{ fontWeight: 700, fontSize: 12, color: C.white, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>2026-27</div></div>
       </div>
-      {tabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? C.crimson : C.gray, borderBottom: page === t.id ? `2px solid ${C.crimson}` : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
-      <div style={{ marginLeft: "auto", position: "relative", flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", overflowX: "auto", flex: 1 }}>
+        {tabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? C.crimson : C.gray, borderBottom: page === t.id ? `2px solid ${C.crimson}` : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
+      </div>
+      <div style={{ position: "relative", flexShrink: 0, paddingLeft: 12 }}>
         <button onClick={() => setShowMenu(m => !m)} style={{ display: "flex", alignItems: "center", gap: 7, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
           <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.crimson + "25", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.crimson }}>{(profile?.team_name || user?.email || "?")[0].toUpperCase()}</div>
           <span style={{ fontSize: 12, color: C.white, fontWeight: 500, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile?.team_name || user?.email}</span>
@@ -1006,48 +1008,48 @@ function HistoryPage() {
 // --- SEASON STATS PAGE ---
 
 function StatsPage({ players }) {
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({ topScorer: null, topWicketer: null, bestFantasy: null, topPicked: [] });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const load = async () => {
-      const [scoresRes, ptsRes] = await Promise.all([
-        supabase.from("gameweek_scores").select("player_id, runs, wickets, calculated_pts, gameweek_id"),
-        supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, username)"),
-      ]);
-      const scores = scoresRes.data || [];
-      const pts = ptsRes.data || [];
+      try {
+        const [scoresRes, ptsRes, squadRes] = await Promise.all([
+          supabase.from("gameweek_scores").select("player_id, runs, wickets, calculated_pts, gameweek_id"),
+          supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, username)"),
+          supabase.from("squads").select("player_id"),
+        ]);
+        const scores = scoresRes.data || [];
+        const pts = ptsRes.data || [];
+        const squadData = squadRes.data || [];
 
-      // Top scorer (most runs)
-      const runsByPlayer = {};
-      scores.forEach(s => { runsByPlayer[s.player_id] = (runsByPlayer[s.player_id] || 0) + (s.runs || 0); });
-      const topScorerEntry = Object.entries(runsByPlayer).sort((a, b) => b[1] - a[1])[0];
-      const topScorer = topScorerEntry ? { player: players.find(p => p.id === parseInt(topScorerEntry[0])), runs: topScorerEntry[1] } : null;
+        const runsByPlayer = {};
+        scores.forEach(s => { runsByPlayer[s.player_id] = (runsByPlayer[s.player_id] || 0) + (s.runs || 0); });
+        const topScorerEntry = Object.entries(runsByPlayer).sort((a, b) => b[1] - a[1])[0];
+        const topScorer = topScorerEntry ? { player: players.find(p => p.id === parseInt(topScorerEntry[0])), runs: topScorerEntry[1] } : null;
 
-      // Top wicket taker
-      const wktsByPlayer = {};
-      scores.forEach(s => { wktsByPlayer[s.player_id] = (wktsByPlayer[s.player_id] || 0) + (s.wickets || 0); });
-      const topWktEntry = Object.entries(wktsByPlayer).sort((a, b) => b[1] - a[1])[0];
-      const topWicketer = topWktEntry ? { player: players.find(p => p.id === parseInt(topWktEntry[0])), wickets: topWktEntry[1] } : null;
+        const wktsByPlayer = {};
+        scores.forEach(s => { wktsByPlayer[s.player_id] = (wktsByPlayer[s.player_id] || 0) + (s.wickets || 0); });
+        const topWktEntry = Object.entries(wktsByPlayer).sort((a, b) => b[1] - a[1])[0];
+        const topWicketer = topWktEntry ? { player: players.find(p => p.id === parseInt(topWktEntry[0])), wickets: topWktEntry[1] } : null;
 
-      // Best fantasy performer (total pts across all GWs per user)
-      const userPts = {};
-      pts.forEach(r => { if (!userPts[r.user_id] || r.total_pts > userPts[r.user_id].pts) userPts[r.user_id] = { pts: r.total_pts, profile: r.profiles }; });
-      const bestFantasy = Object.values(userPts).sort((a, b) => b.pts - a.pts)[0] || null;
+        const userPts = {};
+        pts.forEach(r => { if (!userPts[r.user_id] || r.total_pts > userPts[r.user_id].pts) userPts[r.user_id] = { pts: r.total_pts, profile: r.profiles }; });
+        const bestFantasy = Object.values(userPts).sort((a, b) => b.pts - a.pts)[0] || null;
 
-      // Top 5 most picked players (from squads table)
-      const { data: squadData } = await supabase.from("squads").select("player_id");
-      const pickCounts = {};
-      (squadData || []).forEach(s => { pickCounts[s.player_id] = (pickCounts[s.player_id] || 0) + 1; });
-      const topPicked = Object.entries(pickCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([pid, count]) => ({ player: players.find(p => p.id === parseInt(pid)), count })).filter(x => x.player);
+        const pickCounts = {};
+        squadData.forEach(s => { pickCounts[s.player_id] = (pickCounts[s.player_id] || 0) + 1; });
+        const topPicked = Object.entries(pickCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([pid, count]) => ({ player: players.find(p => p.id === parseInt(pid)), count })).filter(x => x.player);
 
-      setStats({ topScorer, topWicketer, bestFantasy, topPicked });
+        setStats({ topScorer, topWicketer, bestFantasy, topPicked });
+      } catch (e) {
+        setError("Failed to load stats. Please try again.");
+      }
       setLoading(false);
     };
-    if (players.length > 0) load();
+    load();
   }, [players]);
-
-  if (loading) return <Spinner label="Loading season stats..." />;
 
   const StatBlock = ({ title, accent, children }) => (
     <div style={{ background: C.bgCard, borderRadius: 12, padding: "20px", border: `1px solid ${accent}30`, marginBottom: 14 }}>
@@ -1061,6 +1063,9 @@ function StatsPage({ players }) {
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="Season Stats" sub="2026-27 season at a glance" />
+      {loading ? <Spinner label="Loading season stats..." /> : error ? (
+        <div style={{ textAlign: "center", color: C.danger, padding: "60px 0", fontSize: 13 }}>{error}</div>
+      ) : (
       <div style={{ paddingTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
         <StatBlock title="TOP RUN SCORER" accent={C.indigo}>
@@ -1132,6 +1137,7 @@ function StatsPage({ players }) {
           )}
         </StatBlock>
       </div>
+      )}
     </div>
   );
 }
