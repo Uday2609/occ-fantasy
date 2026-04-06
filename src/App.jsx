@@ -160,7 +160,7 @@ function AuthPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, background: C.bgDeep }}>
       <div style={{ animation: "fadeUp 0.4s ease", width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", margin: "0 auto 14px", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>&#127955;</div>
+          <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC Logo" style={{ width: 72, height: 72, margin: "0 auto 14px", display: "block", objectFit: "contain" }} />
           <div style={{ fontWeight: 700, fontSize: 20, color: C.white }}>OCC Fantasy</div>
           <div style={{ fontSize: 11, color: C.gray, marginTop: 3, letterSpacing: 1 }}>OAKLEIGH CRICKET CLUB · 2026-27</div>
         </div>
@@ -233,7 +233,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
   return (
     <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
-        <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>&#127955;</div>
+        <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 32, height: 32, objectFit: "contain" }} />
         <div><div style={{ fontWeight: 700, fontSize: 12, color: C.white, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>2026-27</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", overflowX: "auto", flex: 1 }}>
@@ -490,7 +490,7 @@ function SquadPage({ players, userId }) {
     return (
       <div style={{ background: C.bgCard, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `1px solid ${isC ? C.crimson : isVC ? C.crimsonLt + "70" : p.is_marquee ? C.gold + "40" : C.border}`, flex: 1, minWidth: 0, cursor: "pointer", transition: "border-color 0.15s" }}
         onClick={() => toggleCaptain(p.id)}>
-        <div style={{ fontSize: 9, color: ROLE_COLORS[p.role], fontWeight: 700, letterSpacing: 0.5 }}>{ROLE_LABELS[p.role].slice(0, 4).toUpperCase()}</div>
+        <div style={{ fontSize: 9, color: ROLE_COLORS[p.role], fontWeight: 700, letterSpacing: 0.5 }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
         <div style={{ fontSize: 11, fontWeight: 700, color: C.white, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name.split(" ").pop()}</div>
         <div style={{ fontSize: 9, fontWeight: 700, color: isC ? C.crimson : isVC ? C.crimsonLt : p.is_marquee ? C.gold : C.gray, marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : p.is_marquee ? "MQ" : "\u00a0"}</div>
       </div>
