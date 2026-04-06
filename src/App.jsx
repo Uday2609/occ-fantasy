@@ -491,8 +491,8 @@ function SquadPage({ players, userId }) {
       <div style={{ background: C.bgCard, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `1px solid ${isC ? C.crimson : isVC ? C.crimsonLt + "70" : p.is_marquee ? C.gold + "40" : C.border}`, flex: 1, minWidth: 0, cursor: "pointer", transition: "border-color 0.15s" }}
         onClick={() => toggleCaptain(p.id)}>
         <div style={{ fontSize: 9, color: ROLE_COLORS[p.role], fontWeight: 700, letterSpacing: 0.5 }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.white, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name.split(" ").pop()}</div>
-        <div style={{ fontSize: 9, fontWeight: 700, color: isC ? C.crimson : isVC ? C.crimsonLt : p.is_marquee ? C.gold : C.gray, marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : p.is_marquee ? "MQ" : "\u00a0"}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.white, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+        <div style={{ fontSize: 9, fontWeight: 700, color: isC ? C.crimson : isVC ? C.crimsonLt : p.is_marquee ? C.gold : C.gray, marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
       </div>
     );
   };
