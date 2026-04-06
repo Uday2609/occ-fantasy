@@ -481,133 +481,132 @@ function SquadPage({ players, userId }) {
   const grouped = { BAT: [], BOWL: [], AR: [], WK: [] };
   squad.forEach(p => grouped[p.role].push(p));
 
+  const pitchGroups = { WK: [], BAT: [], AR: [], BOWL: [] };
+  squad.forEach(p => { if (pitchGroups[p.role]) pitchGroups[p.role].push(p); });
+
+  const PitchCard = ({ p }) => {
+    const isC = captain === p.id;
+    const isVC = viceCaptain === p.id;
+    return (
+      <div style={{ background: C.bgCard, borderRadius: 6, padding: "5px 6px", textAlign: "center", border: `1px solid ${isC ? C.crimson : isVC ? C.crimsonLt + "70" : p.is_marquee ? C.gold + "40" : C.border}`, flex: 1, minWidth: 0, cursor: "pointer" }}
+        onClick={() => toggleCaptain(p.id)}>
+        <div style={{ fontSize: 7, color: ROLE_COLORS[p.role], fontWeight: 700, letterSpacing: 0.3 }}>{ROLE_LABELS[p.role].slice(0,4).toUpperCase()}</div>
+        <div style={{ fontSize: 9, fontWeight: 700, color: C.white, lineHeight: 1.3, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name.split(" ").pop()}</div>
+        <div style={{ fontSize: 7, fontWeight: 700, color: isC ? C.crimson : isVC ? C.crimsonLt : C.gray }}>{isC ? "C" : isVC ? "VC" : p.is_marquee ? "MQ" : " "}</div>
+      </div>
+    );
+  };
+
   if (loadingSquad) return <Spinner label="Loading your squad..." />;
 
   return (
-    <div style={{ padding: "0 0 48px" }}>
-      <div style={{ padding: "32px 32px 18px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 10, color: C.crimson, letterSpacing: 3, fontWeight: 600, marginBottom: 5 }}>OAKLEIGH CRICKET CLUB</div>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: C.white, lineHeight: 1.2, marginBottom: 10 }}>My Squad</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div style={{ padding: "0 28px 32px" }}>
+      {/* Header */}
+      <div style={{ padding: "20px 0 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 9, color: C.crimson, letterSpacing: 3, fontWeight: 600, marginBottom: 3 }}>OAKLEIGH CRICKET CLUB</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.white }}>My Squad — GW{ACTIVE_GW}</h1>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {deadline && <Countdown deadline={deadline} />}
-          {!transfersOpen && hasSquad && <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.gold + "15", border: `1px solid ${C.gold}40`, borderRadius: 8, padding: "6px 14px" }}><span style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>Transfer window closed</span></div>}
-          {transfersOpen && <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.success + "15", border: `1px solid ${C.success}40`, borderRadius: 8, padding: "6px 14px" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: C.success, animation: "pulse 1.5s infinite" }} /><span style={{ fontSize: 12, color: C.success, fontWeight: 600 }}>Transfer window open</span></div>}
+          {!transfersOpen && hasSquad && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: C.gold + "15", border: `1px solid ${C.gold}40`, borderRadius: 7, padding: "5px 11px" }}><span style={{ fontSize: 11, color: C.gold, fontWeight: 600 }}>Window closed</span></div>}
+          {transfersOpen && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: C.success + "15", border: `1px solid ${C.success}40`, borderRadius: 7, padding: "5px 11px" }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: C.success, animation: "pulse 1.5s infinite" }} /><span style={{ fontSize: 11, color: C.success, fontWeight: 600 }}>Window open</span></div>}
         </div>
       </div>
 
-      {/* GW points banner */}
-      {gwPoints !== null && (
-        <div style={{ padding: "14px 32px", background: C.bgCard, borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, maxWidth: 480 }}>
-            <div onClick={loadGwBreakdown} style={{ background: C.crimson + "15", border: `1px solid ${C.crimson}40`, borderRadius: 10, padding: "12px 14px", textAlign: "center", cursor: "pointer" }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = C.crimson + "80"}
-              onMouseLeave={e => e.currentTarget.style.borderColor = C.crimson + "40"}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: C.crimson }}>{gwPoints}</div>
-              <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>MY GW{ACTIVE_GW} SCORE</div>
-              <div style={{ fontSize: 10, color: C.crimson, marginTop: 3 }}>tap to see breakdown</div>
-            </div>
-            <div style={{ background: C.bgDeep, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: C.gold }}>{gwAvg ?? "—"}</div>
-              <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>GW AVG</div>
-            </div>
-            <div style={{ background: C.bgDeep, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: C.success }}>{gwHigh ?? "—"}</div>
-              <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>GW HIGH</div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Layout F: left panel | right pitch */}
+      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 14, marginTop: 14 }}>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "16px 32px" }}>
-        <StatCard label="BUDGET LEFT" value={`$${remaining}`} accent={remaining < 80 ? C.danger : C.white} />
-        <StatCard label="PLAYERS" value={`${squad.length}/${SQUAD_SIZE}`} />
-        <StatCard label="MARQUEE" value={`${marqueeCount}/${MAX_MARQUEE}`} accent={marqueeCount >= MAX_MARQUEE ? C.danger : C.success} />
-        <StatCard label="TRANSFERS" value={`${TRANSFERS_PER_GW}/${TRANSFERS_PER_GW}`} accent={transfersOpen ? C.success : C.gray} />
-      </div>
+        {/* LEFT PANEL */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 0, padding: "0 32px" }}>
-        <div style={{ paddingRight: 24, borderRight: `1px solid ${C.border}` }}>
-          {Object.entries(grouped).map(([role, rPlayers]) => (
-            <div key={role} style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <div style={{ height: 1, flex: 1, background: C.border }} />
-                <span style={{ fontSize: 9, color: ROLE_COLORS[role], fontWeight: 700, letterSpacing: 2 }}>{ROLE_LABELS[role].toUpperCase()}S · {rPlayers.length}/{ROLE_LIMITS[role]}</span>
-                <div style={{ height: 1, flex: 1, background: C.border }} />
-              </div>
-              {rPlayers.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12, padding: "8px 0", opacity: 0.5 }}>No {ROLE_LABELS[role].toLowerCase()}s added yet</div>}
-              {rPlayers.map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.bgCard, borderRadius: 10, marginBottom: 5, border: captain === p.id ? `1px solid ${C.crimson}` : viceCaptain === p.id ? `1px solid ${C.crimsonLt}60` : `1px solid ${C.border}`, transition: "border-color 0.15s" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white, display: "flex", alignItems: "center", gap: 6 }}>
-                      {p.name}
-                      {captain === p.id && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>C</span>}
-                      {viceCaptain === p.id && <span style={{ background: C.crimsonLt + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>VC</span>}
-                    </div>
-                    <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
-                  </div>
-                  <div style={{ textAlign: "right", marginRight: 4 }}>
-                    <div style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>${p.price}</div>
-                    <div style={{ fontSize: 10, color: C.gray }}>{p.pts} pts</div>
-                  </div>
-                  <button onClick={() => toggleCaptain(p.id)} style={{ background: captain === p.id ? C.crimson : "transparent", color: captain === p.id ? C.white : C.gray, border: `1px solid ${C.crimson}50`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>C</button>
-                  <button onClick={() => toggleVC(p.id)} style={{ background: viceCaptain === p.id ? C.crimsonLt + "30" : "transparent", color: viceCaptain === p.id ? C.crimsonLt : C.gray, border: `1px solid ${C.crimsonLt}30`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>VC</button>
-                  <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>x</button>
-                </div>
-              ))}
-            </div>
-          ))}
-          <div style={{ marginTop: 8 }}>
-            {hasSquad && !transfersOpen ? (
-              <div style={{ padding: "11px 16px", background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 12, color: C.gold, textAlign: "center" }}>Transfer window closed — check back after Thursday selection</div>
-            ) : (
+          {/* GW Score */}
+          <div style={{ background: `linear-gradient(135deg,${C.crimson}22,${C.bgCard})`, border: `1px solid ${C.crimson}40`, borderRadius: 12, padding: "14px 16px" }}>
+            <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1, marginBottom: 3 }}>GW{ACTIVE_GW} SCORE</div>
+            {gwPoints !== null ? (
               <>
-                <button onClick={() => setShowPicker(true)} style={{ display: "block", width: "100%", padding: "12px", background: C.crimson, color: C.white, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 7 }}>+ Add Players</button>
-                <button onClick={saveSquad} disabled={saving} style={{ display: "block", width: "100%", padding: "12px", background: saving ? C.bgCard : C.success + "CC", color: C.white, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+                <div onClick={loadGwBreakdown} style={{ fontSize: 38, fontWeight: 700, color: C.crimson, lineHeight: 1, cursor: "pointer" }}>{gwPoints}</div>
+                <div style={{ fontSize: 9, color: C.crimson, marginTop: 2, cursor: "pointer" }}>tap for breakdown</div>
+                <div style={{ display: "flex", gap: 10, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.gold }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 8, color: C.gray }}>AVG</div></div>
+                  <div style={{ width: 1, background: C.border }} />
+                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.success }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 8, color: C.gray }}>HIGH</div></div>
+                </div>
               </>
+            ) : (
+              <div style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>No points yet this GW.</div>
             )}
-            {saveMsg && <div style={{ marginTop: 8, padding: "9px 14px", borderRadius: 8, fontSize: 12, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30` }}>{saveMsg}</div>}
           </div>
-        </div>
 
-        <div style={{ paddingLeft: 24, paddingTop: 16 }}>
-          <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>SQUAD SUMMARY</div>
-            {[["Total squad value", `$${spent}`, C.gold], ["Remaining budget", `$${remaining}`, remaining < 80 ? C.danger : C.white], ["Players selected", `${squad.length} / ${SQUAD_SIZE}`, C.white], ["Marquee players", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.white]].map(([l, v, a]) => (
-              <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: C.grayLt }}>{l}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: a }}>{v}</span>
+          {/* Squad status */}
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px" }}>
+            <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 8 }}>SQUAD STATUS</div>
+            {[["Budget left", `$${remaining}`, remaining < 80 ? C.danger : C.white], ["Players", `${squad.length} / ${SQUAD_SIZE}`, C.white], ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success], ["Transfers", `${TRANSFERS_PER_GW} / ${TRANSFERS_PER_GW}`, transfersOpen ? C.success : C.gray]].map(([l, v, a]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: C.gray }}>{l}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: a }}>{v}</span>
               </div>
             ))}
+            <div style={{ height: 3, background: C.bgDeep, borderRadius: 2, overflow: "hidden", marginTop: 6 }}>
+              <div style={{ height: "100%", width: `${((BUDGET - remaining) / BUDGET) * 100}%`, background: remaining < 80 ? C.danger : C.crimson, borderRadius: 2, transition: "width 0.3s" }} />
+            </div>
           </div>
-          <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>ROLE BREAKDOWN</div>
-            {Object.entries(ROLE_LIMITS).map(([role, limit]) => {
-              const count = roleCounts[role] || 0;
-              return (
-                <div key={role} style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: ROLE_COLORS[role], fontWeight: 600 }}>{ROLE_LABELS[role]}s</span>
-                    <span style={{ fontSize: 11, color: C.gray }}>{count}/{limit}</span>
-                  </div>
-                  <div style={{ height: 4, background: C.bgDeep, borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${(count / limit) * 100}%`, background: ROLE_COLORS[role], borderRadius: 2, transition: "width 0.3s" }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ background: C.bgCard, borderRadius: 10, padding: "16px", border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 10 }}>LEADERSHIP</div>
-            {[["Captain (2x)", captain], ["Vice Captain (1.5x)", viceCaptain]].map(([label, id]) => {
+
+          {/* Captain / VC */}
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px" }}>
+            <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 8 }}>LEADERSHIP</div>
+            {[["Captain (2x)", captain, C.crimson], ["Vice Captain (1.5x)", viceCaptain, C.crimsonLt]].map(([label, id, accent]) => {
               const p = squad.find(x => x.id === id);
               return (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span style={{ fontSize: 11, color: C.gray }}>{label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: p ? C.white : C.gray }}>{p ? p.name : "Not set"}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: p ? accent : C.gray }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
                 </div>
               );
             })}
-            {(!captain || !viceCaptain) && <div style={{ marginTop: 8, fontSize: 11, color: C.gold, padding: "6px 10px", background: C.gold + "10", borderRadius: 6 }}>Set both before saving your squad</div>}
+            {(!captain || !viceCaptain) && <div style={{ fontSize: 10, color: C.gold, padding: "5px 8px", background: C.gold + "10", borderRadius: 5, marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
+          </div>
+
+          {/* Buttons */}
+          {hasSquad && !transfersOpen ? (
+            <div style={{ padding: "9px 12px", background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 9, fontSize: 11, color: C.gold, textAlign: "center" }}>Window closed — opens after Thursday</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <button onClick={() => setShowPicker(true)} style={{ padding: "11px", background: C.crimson, color: C.white, border: "none", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
+              <button onClick={saveSquad} disabled={saving} style={{ padding: "11px", background: saving ? C.bgCard : C.success + "CC", color: C.white, border: "none", borderRadius: 9, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+            </div>
+          )}
+          {saveMsg && <div style={{ padding: "8px 12px", borderRadius: 7, fontSize: 12, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30` }}>{saveMsg}</div>}
+        </div>
+
+        {/* RIGHT: PITCH */}
+        <div style={{ background: "#0c1a0c", border: "1px solid #3DBF7A18", borderRadius: 14, padding: "14px 12px", display: "flex", flexDirection: "column", gap: 8, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 6, border: "1px solid #3DBF7A10", borderRadius: 10, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 50, height: 80, border: "1px solid #3DBF7A0A", borderRadius: 4, pointerEvents: "none" }} />
+          <div style={{ fontSize: 8, color: "#3DBF7A90", fontWeight: 700, letterSpacing: 2, textAlign: "center" }}>YOUR PITCH • TAP PLAYER TO SET C / VC</div>
+          {squad.length === 0 ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 0" }}>
+              <div style={{ textAlign: "center", color: C.gray, fontSize: 13 }}>Add players to see your pitch</div>
+            </div>
+          ) : (
+            <>
+              {pitchGroups.WK.length > 0 && <div style={{ display: "flex", justifyContent: "center", gap: 5 }}>{pitchGroups.WK.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.BAT.length > 0 && <div style={{ display: "flex", gap: 4 }}>{pitchGroups.BAT.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.AR.length > 0 && <div style={{ display: "flex", gap: 4 }}>{pitchGroups.AR.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.BOWL.length > 0 && <div style={{ display: "flex", gap: 4 }}>{pitchGroups.BOWL.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+            </>
+          )}
+          <div style={{ display: "flex", justifyContent: "center", gap: 14, paddingTop: 6, borderTop: "1px solid #3DBF7A10" }}>
+            {Object.entries(ROLE_LIMITS).map(([role, limit]) => (
+              <div key={role} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: ROLE_COLORS[role] }}>{(pitchGroups[role]?.length || 0)}/{limit}</div>
+                <div style={{ fontSize: 7, color: C.gray }}>{ROLE_LABELS[role].slice(0,3)}</div>
+              </div>
+            ))}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: C.white }}>{squad.length}/{SQUAD_SIZE}</div>
+              <div style={{ fontSize: 7, color: C.gray }}>Total</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1008,7 +1007,7 @@ function HistoryPage() {
 // --- SEASON STATS PAGE ---
 
 function StatsPage({ players }) {
-  const [stats, setStats] = useState({ topScorer: null, topWicketer: null, bestFantasy: null, topPicked: [] });
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -1020,6 +1019,7 @@ function StatsPage({ players }) {
           supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, username)"),
           supabase.from("squads").select("player_id"),
         ]);
+
         const scores = scoresRes.data || [];
         const pts = ptsRes.data || [];
         const squadData = squadRes.data || [];
@@ -1027,20 +1027,31 @@ function StatsPage({ players }) {
         const runsByPlayer = {};
         scores.forEach(s => { runsByPlayer[s.player_id] = (runsByPlayer[s.player_id] || 0) + (s.runs || 0); });
         const topScorerEntry = Object.entries(runsByPlayer).sort((a, b) => b[1] - a[1])[0];
-        const topScorer = topScorerEntry ? { player: players.find(p => p.id === parseInt(topScorerEntry[0])), runs: topScorerEntry[1] } : null;
+        const topScorer = topScorerEntry
+          ? { player: players.find(p => p.id === parseInt(topScorerEntry[0])) || null, runs: topScorerEntry[1] }
+          : null;
 
         const wktsByPlayer = {};
         scores.forEach(s => { wktsByPlayer[s.player_id] = (wktsByPlayer[s.player_id] || 0) + (s.wickets || 0); });
         const topWktEntry = Object.entries(wktsByPlayer).sort((a, b) => b[1] - a[1])[0];
-        const topWicketer = topWktEntry ? { player: players.find(p => p.id === parseInt(topWktEntry[0])), wickets: topWktEntry[1] } : null;
+        const topWicketer = topWktEntry
+          ? { player: players.find(p => p.id === parseInt(topWktEntry[0])) || null, wickets: topWktEntry[1] }
+          : null;
 
         const userPts = {};
-        pts.forEach(r => { if (!userPts[r.user_id] || r.total_pts > userPts[r.user_id].pts) userPts[r.user_id] = { pts: r.total_pts, profile: r.profiles }; });
+        pts.forEach(r => {
+          if (!userPts[r.user_id] || r.total_pts > userPts[r.user_id].pts)
+            userPts[r.user_id] = { pts: r.total_pts, profile: r.profiles };
+        });
         const bestFantasy = Object.values(userPts).sort((a, b) => b.pts - a.pts)[0] || null;
 
         const pickCounts = {};
         squadData.forEach(s => { pickCounts[s.player_id] = (pickCounts[s.player_id] || 0) + 1; });
-        const topPicked = Object.entries(pickCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([pid, count]) => ({ player: players.find(p => p.id === parseInt(pid)), count })).filter(x => x.player);
+        const topPicked = Object.entries(pickCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([pid, count]) => ({ player: players.find(p => p.id === parseInt(pid)) || null, count }))
+          .filter(x => x.player);
 
         setStats({ topScorer, topWicketer, bestFantasy, topPicked });
       } catch (e) {
@@ -1051,92 +1062,95 @@ function StatsPage({ players }) {
     load();
   }, [players]);
 
+  const noData = <div style={{ fontSize: 13, color: C.gray }}>No data yet — check back after gameweek 1.</div>;
+
   const StatBlock = ({ title, accent, children }) => (
-    <div style={{ background: C.bgCard, borderRadius: 12, padding: "20px", border: `1px solid ${accent}30`, marginBottom: 14 }}>
+    <div style={{ background: C.bgCard, borderRadius: 12, padding: "20px", border: `1px solid ${accent}30` }}>
       <div style={{ fontSize: 10, color: accent, letterSpacing: 2, fontWeight: 700, marginBottom: 14 }}>{title}</div>
       {children}
     </div>
   );
 
-  const noData = <div style={{ fontSize: 13, color: C.gray }}>No data yet — check back after gameweek 1.</div>;
-
   return (
     <div style={{ padding: "0 32px 48px" }}>
       <Header title="Season Stats" sub="2026-27 season at a glance" />
-      {loading ? <Spinner label="Loading season stats..." /> : error ? (
+      {loading ? (
+        <Spinner label="Loading season stats..." />
+      ) : error ? (
         <div style={{ textAlign: "center", color: C.danger, padding: "60px 0", fontSize: 13 }}>{error}</div>
       ) : (
-      <div style={{ paddingTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ paddingTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
-        <StatBlock title="TOP RUN SCORER" accent={C.indigo}>
-          {!topScorer?.player ? noData : (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{stats.topScorer.player.name}</div>
-                <div style={{ marginTop: 4 }}><RoleBadge role={stats.topScorer.player.role} /></div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: C.indigo }}>{stats.topScorer.runs}</div>
-                <div style={{ fontSize: 10, color: C.gray }}>RUNS</div>
-              </div>
-            </div>
-          )}
-        </StatBlock>
-
-        <StatBlock title="TOP WICKET TAKER" accent={C.gold}>
-          {!stats?.topWicketer?.player ? noData : (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{stats.topWicketer.player.name}</div>
-                <div style={{ marginTop: 4 }}><RoleBadge role={stats.topWicketer.player.role} /></div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: C.gold }}>{stats.topWicketer.wickets}</div>
-                <div style={{ fontSize: 10, color: C.gray }}>WICKETS</div>
-              </div>
-            </div>
-          )}
-        </StatBlock>
-
-        <StatBlock title="BEST FANTASY PERFORMER" accent={C.crimson}>
-          {!stats?.bestFantasy ? noData : (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>
-                {(stats.bestFantasy.profile?.team_name || "?")[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{stats.bestFantasy.profile?.team_name || "Unnamed Team"}</div>
-                <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>{stats.bestFantasy.profile?.username}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: C.crimson }}>{stats.bestFantasy.pts}</div>
-                <div style={{ fontSize: 10, color: C.gray }}>TOTAL PTS</div>
-              </div>
-            </div>
-          )}
-        </StatBlock>
-
-        <StatBlock title="MOST PICKED PLAYERS" accent={C.success}>
-          {stats?.topPicked?.length === 0 ? noData : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {(stats?.topPicked || []).map(({ player, count }, i) => (
-                <div key={player.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.success + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.success, flexShrink: 0 }}>{i + 1}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: C.white }}>{player.name}</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ height: 4, width: 60, background: C.bgDeep, borderRadius: 2, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${(count / ((stats?.topPicked?.[0]?.count) || 1)) * 100}%`, background: C.success, borderRadius: 2 }} />
-                    </div>
-                    <span style={{ fontSize: 12, color: C.success, fontWeight: 600, minWidth: 24 }}>{count}</span>
-                  </div>
+          <StatBlock title="TOP RUN SCORER" accent={C.indigo}>
+            {!stats?.topScorer?.player ? noData : (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{stats.topScorer.player.name}</div>
+                  <div style={{ marginTop: 4 }}><RoleBadge role={stats.topScorer.player.role} /></div>
                 </div>
-              ))}
-            </div>
-          )}
-        </StatBlock>
-      </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: C.indigo }}>{stats.topScorer.runs}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>RUNS</div>
+                </div>
+              </div>
+            )}
+          </StatBlock>
+
+          <StatBlock title="TOP WICKET TAKER" accent={C.gold}>
+            {!stats?.topWicketer?.player ? noData : (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{stats.topWicketer.player.name}</div>
+                  <div style={{ marginTop: 4 }}><RoleBadge role={stats.topWicketer.player.role} /></div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: C.gold }}>{stats.topWicketer.wickets}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>WICKETS</div>
+                </div>
+              </div>
+            )}
+          </StatBlock>
+
+          <StatBlock title="BEST FANTASY PERFORMER" accent={C.crimson}>
+            {!stats?.bestFantasy ? noData : (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.crimson + "20", border: `1px solid ${C.crimson}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: C.crimson, flexShrink: 0 }}>
+                  {(stats.bestFantasy.profile?.team_name || "?")[0].toUpperCase()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{stats.bestFantasy.profile?.team_name || "Unnamed Team"}</div>
+                  <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>{stats.bestFantasy.profile?.username}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: C.crimson }}>{stats.bestFantasy.pts}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>TOTAL PTS</div>
+                </div>
+              </div>
+            )}
+          </StatBlock>
+
+          <StatBlock title="MOST PICKED PLAYERS" accent={C.success}>
+            {!stats?.topPicked?.length ? noData : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {stats.topPicked.map(({ player, count }, i) => (
+                  <div key={player.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.success + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.success, flexShrink: 0 }}>{i + 1}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: C.white }}>{player.name}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ height: 4, width: 60, background: C.bgDeep, borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${(count / (stats.topPicked[0]?.count || 1)) * 100}%`, background: C.success, borderRadius: 2 }} />
+                      </div>
+                      <span style={{ fontSize: 12, color: C.success, fontWeight: 600, minWidth: 24 }}>{count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </StatBlock>
+
+        </div>
       )}
     </div>
   );
