@@ -55,8 +55,19 @@ const globalStyles = `
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-  @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 `;
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return mobile;
+}
 
 function calcPoints(s) {
   let pts = 0;
@@ -109,9 +120,9 @@ function StatCard({ label, value, accent, onClick, sub }) {
 
 function Header({ title, sub }) {
   return (
-    <div style={{ padding: "32px 32px 18px", borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ padding: "24px clamp(16px,4vw,32px) 16px", borderBottom: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 10, color: C.crimson, letterSpacing: 3, fontWeight: 600, marginBottom: 5 }}>OAKLEIGH CRICKET CLUB</div>
-      <h1 style={{ fontSize: 28, fontWeight: 700, color: C.white, lineHeight: 1.2 }}>{title}</h1>
+      <h1 style={{ fontSize: "clamp(20px,5vw,28px)", fontWeight: 700, color: C.white, lineHeight: 1.2 }}>{title}</h1>
       {sub && <p style={{ color: C.gray, marginTop: 5, fontSize: 13 }}>{sub}</p>}
     </div>
   );
@@ -220,16 +231,75 @@ function SignupForm() {
 
 // --- NAV ---
 
+const BOTTOM_TABS = [
+  { id: "squad",       label: "Squad",      icon: "⬡" },
+  { id: "players",     label: "Players",    icon: "☰" },
+  { id: "leaderboard", label: "Standings",  icon: "◎" },
+  { id: "howtoplay",   label: "Rules",      icon: "?" },
+];
+
 function Nav({ page, setPage, user, profile, onLogout }) {
   const [showMenu, setShowMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const isMobile = useIsMobile();
   const isAdmin = user?.id === ADMIN_ID;
-  const tabs = [
+
+  const allTabs = [
     { id: "squad", label: "My Squad" }, { id: "players", label: "Players" },
     { id: "leaderboard", label: "Leaderboard" }, { id: "teams", label: "View Teams" },
     { id: "history", label: "GW History" }, { id: "stats", label: "Season Stats" },
     { id: "howtoplay", label: "How to Play" },
     ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
+
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile top bar */}
+        <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 16px", height: 52 }}>
+          <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 30, height: 30, objectFit: "contain", marginRight: 8 }} />
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.white, flex: 1 }}>OCC Fantasy</div>
+          {/* More menu button */}
+          <button onClick={() => setShowMobileMenu(m => !m)} style={{ background: "none", border: "none", color: C.gray, fontSize: 22, cursor: "pointer", padding: "0 4px", marginRight: 8, lineHeight: 1 }}>&#8801;</button>
+          {/* Avatar */}
+          <button onClick={() => setShowMenu(m => !m)} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.crimson, cursor: "pointer" }}>
+            {(profile?.team_name || user?.email || "?")[0].toUpperCase()}
+          </button>
+          {/* Avatar dropdown */}
+          {showMenu && (
+            <div style={{ position: "absolute", right: 12, top: "calc(100% + 6px)", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, minWidth: 180, boxShadow: "0 8px 24px #00000080", zIndex: 300 }}>
+              <div style={{ padding: "6px 10px", fontSize: 11, color: C.gray, borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>{user?.email}</div>
+              <button onClick={() => { setShowMenu(false); setPage("account"); setShowMobileMenu(false); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "none", background: "transparent", color: C.whiteD, cursor: "pointer", fontSize: 13, textAlign: "left" }}>Account settings</button>
+              <button onClick={() => { setShowMenu(false); onLogout(); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "none", background: "transparent", color: C.danger, cursor: "pointer", fontSize: 13, textAlign: "left" }}>Log out</button>
+            </div>
+          )}
+        </nav>
+
+        {/* Full-screen slide-down menu */}
+        {showMobileMenu && (
+          <div style={{ position: "fixed", top: 52, left: 0, right: 0, background: C.bgDeep, border: `1px solid ${C.border}`, borderTop: "none", zIndex: 99, padding: "8px 0 16px", boxShadow: "0 8px 24px #00000060", animation: "slideDown 0.2s ease" }}>
+            {allTabs.map(t => (
+              <button key={t.id} onClick={() => { setPage(t.id); setShowMobileMenu(false); }} style={{ display: "block", width: "100%", padding: "13px 20px", background: page === t.id ? C.crimson + "15" : "none", border: "none", color: page === t.id ? C.crimson : C.whiteD, cursor: "pointer", fontSize: 14, fontWeight: page === t.id ? 700 : 400, textAlign: "left", borderLeft: page === t.id ? `3px solid ${C.crimson}` : "3px solid transparent" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Bottom tab bar */}
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bgDeep, borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
+          {BOTTOM_TABS.map(t => (
+            <button key={t.id} onClick={() => { setPage(t.id); setShowMobileMenu(false); }} style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <div style={{ fontSize: 16, color: page === t.id ? C.crimson : C.gray }}>{t.icon}</div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: page === t.id ? C.crimson : C.gray, letterSpacing: 0.3 }}>{t.label}</div>
+            </button>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  // Desktop nav
   return (
     <nav style={{ background: C.bgDeep, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
@@ -237,7 +307,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
         <div><div style={{ fontWeight: 700, fontSize: 12, color: C.white, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>2026-27</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", overflowX: "auto", flex: 1 }}>
-        {tabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? C.crimson : C.gray, borderBottom: page === t.id ? `2px solid ${C.crimson}` : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
+        {allTabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? C.crimson : C.gray, borderBottom: page === t.id ? `2px solid ${C.crimson}` : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
       </div>
       <div style={{ position: "relative", flexShrink: 0, paddingLeft: 12 }}>
         <button onClick={() => setShowMenu(m => !m)} style={{ display: "flex", alignItems: "center", gap: 7, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
@@ -280,7 +350,7 @@ function AccountPage({ user, profile, onLogout }) {
     setDeleting(false);
   };
   return (
-    <div style={{ padding: "0 32px 48px", maxWidth: 560 }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)", maxWidth: 560 }}>
       <Header title="Account Settings" sub={user.email} />
       <div style={{ padding: "24px 0", display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ background: C.bgCard, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
@@ -499,6 +569,171 @@ function SquadPage({ players, userId }) {
 
   if (loadingSquad) return <Spinner label="Loading your squad..." />;
 
+  const isMobile = window.innerWidth < 768;
+
+  // ─── MOBILE LAYOUT ───────────────────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div style={{ paddingTop: 52, paddingBottom: 60, minHeight: "100vh", background: C.bgDeep, display: "flex", flexDirection: "column" }}>
+
+        {/* Score strip */}
+        <div style={{ background: `linear-gradient(135deg,${C.crimson}22,${C.bgCard})`, borderBottom: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 0 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>GW{ACTIVE_GW}</div>
+            {gwPoints !== null ? (
+              <div onClick={loadGwBreakdown} style={{ fontSize: 28, fontWeight: 700, color: C.crimson, lineHeight: 1, cursor: "pointer" }}>{gwPoints} <span style={{ fontSize: 11, color: C.crimson }}>pts — tap</span></div>
+            ) : (
+              <div style={{ fontSize: 14, color: C.gray, marginTop: 2 }}>No points yet</div>
+            )}
+          </div>
+          {gwPoints !== null && (
+            <div style={{ display: "flex", gap: 16 }}>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: C.gold }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 9, color: C.gray }}>AVG</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: C.success }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 9, color: C.gray }}>HIGH</div></div>
+            </div>
+          )}
+          <div style={{ marginLeft: 12 }}>
+            {!transfersOpen && hasSquad
+              ? <div style={{ background: C.gold + "15", border: `1px solid ${C.gold}40`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: C.gold, fontWeight: 600 }}>Closed</div>
+              : transfersOpen
+                ? <div style={{ display: "flex", alignItems: "center", gap: 4, background: C.success + "15", border: `1px solid ${C.success}40`, borderRadius: 6, padding: "4px 8px" }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: C.success, animation: "pulse 1.5s infinite" }} /><span style={{ fontSize: 10, color: C.success, fontWeight: 600 }}>Open</span></div>
+                : null}
+          </div>
+        </div>
+
+        {/* Pitch */}
+        <div style={{ background: "#0c1a0c", flex: 1, padding: "10px 10px 6px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 6, border: "1px solid #3DBF7A10", borderRadius: 8, pointerEvents: "none" }} />
+          <div style={{ fontSize: 8, color: "#3DBF7A70", fontWeight: 700, letterSpacing: 1.5, textAlign: "center", marginBottom: 6 }}>TAP PLAYER TO SET C / VC</div>
+          {squad.length === 0 ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ textAlign: "center", color: C.gray, fontSize: 13 }}>Add players to see your pitch</div>
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-evenly", gap: 6 }}>
+              {pitchGroups.WK.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "0 15%" }}>
+                  {pitchGroups.WK.map(p => <PitchCard key={p.id} p={p} />)}
+                </div>
+              )}
+              {pitchGroups.BAT.length > 0 && <div style={{ display: "flex", gap: 5 }}>{pitchGroups.BAT.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.AR.length > 0 && <div style={{ display: "flex", gap: 5 }}>{pitchGroups.AR.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.BOWL.length > 0 && <div style={{ display: "flex", gap: 5 }}>{pitchGroups.BOWL.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+            </div>
+          )}
+          {/* Role counters */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 16, paddingTop: 6, borderTop: "1px solid #3DBF7A10", flexShrink: 0 }}>
+            {Object.entries(ROLE_LIMITS).map(([role, limit]) => (
+              <div key={role} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: ROLE_COLORS[role] }}>{(pitchGroups[role]?.length || 0)}/{limit}</div>
+                <div style={{ fontSize: 8, color: C.gray }}>{role}</div>
+              </div>
+            ))}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.white }}>{squad.length}/{SQUAD_SIZE}</div>
+              <div style={{ fontSize: 8, color: C.gray }}>Total</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Status bar */}
+        <div style={{ background: C.bgCard, borderTop: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          {[["Budget", `$${remaining}`, remaining < 80 ? C.danger : C.white], ["Players", `${squad.length}/${SQUAD_SIZE}`, C.white], ["Marquee", `${marqueeCount}/${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success], ["Captain", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", C.crimson], ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", C.crimsonLt]].map(([l, v, a]) => (
+            <div key={l} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: a }}>{v}</div>
+              <div style={{ fontSize: 8, color: C.gray, marginTop: 1 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ padding: "10px 16px 12px", background: C.bgDeep, flexShrink: 0 }}>
+          {hasSquad && !transfersOpen ? (
+            <div style={{ padding: "12px", background: C.gold + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 13, color: C.gold, textAlign: "center" }}>Window closed — opens after Thursday</div>
+          ) : (
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "13px", background: C.crimson, color: C.white, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+ Add / Edit</button>
+              <button onClick={saveSquad} disabled={saving} style={{ flex: 1, padding: "13px", background: saving ? C.bgCard : C.success + "CC", color: C.white, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+            </div>
+          )}
+          {saveMsg && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 7, fontSize: 12, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30`, textAlign: "center" }}>{saveMsg}</div>}
+        </div>
+
+        {/* Picker modal (same as desktop) */}
+        {showPicker && (
+          <div style={{ position: "fixed", inset: 0, background: "#00000090", zIndex: 200, display: "flex", flexDirection: "column" }} onClick={() => setShowPicker(false)}>
+            <div style={{ background: C.bgDeep, flex: 1, marginTop: 52, display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: "12px 16px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.white }}>Add Players</div>
+                <div style={{ display: "flex", gap: 12, fontSize: 12, color: C.gray }}>
+                  <span style={{ color: remaining < 80 ? C.danger : C.white, fontWeight: 700 }}>${remaining}</span>
+                  <span>{squad.length}/{SQUAD_SIZE}</span>
+                </div>
+                <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: C.gray, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>x</button>
+              </div>
+              <div style={{ padding: "8px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 7, padding: "7px 11px", fontSize: 13, outline: "none", minWidth: 120 }} />
+                {["ALL","BAT","BOWL","AR","WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "6px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? C.crimson + "20" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>{r}</button>)}
+              </div>
+              <div style={{ overflowY: "auto", flex: 1, padding: "6px 12px 80px" }}>
+                {pickerList.map(p => {
+                  const inSquad = !!squad.find(x => x.id === p.id);
+                  const addable = canAdd(p);
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 4px", borderBottom: `1px solid ${C.border}`, opacity: !inSquad && !addable ? 0.3 : 1 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: C.white }}>{p.name} {p.is_marquee && <span style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>MQ</span>}</div>
+                        <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
+                      </div>
+                      <div style={{ textAlign: "right", marginRight: 4 }}>
+                        <div style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>${p.price}</div>
+                        <div style={{ fontSize: 11, color: C.gray }}>{p.pts} pts</div>
+                      </div>
+                      {inSquad
+                        ? <button onClick={() => removePlayer(p.id)} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Remove</button>
+                        : <button onClick={() => addable && setSquad(s => [...s, p])} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
+                      }
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GW breakdown modal */}
+        {showGwBreakdown && (
+          <Modal title={`GW${ACTIVE_GW} Breakdown`} onClose={() => setShowGwBreakdown(false)}>
+            {loadingBreakdown ? <Spinner label="Loading..." /> : gwBreakdown.length === 0
+              ? <div style={{ textAlign: "center", color: C.gray, padding: "20px 0" }}>No scores yet.</div>
+              : (
+                <div>
+                  {gwBreakdown.map(({ player, basePts, finalPts, isCaptain, isVC }) => (
+                    <div key={player?.id} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px", padding: "9px 0", borderBottom: `1px solid ${C.border}`, alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: C.white, display: "flex", alignItems: "center", gap: 5 }}>
+                          {player?.name}
+                          {isCaptain && <span style={{ background: C.crimson, color: C.white, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>C</span>}
+                          {isVC && <span style={{ background: C.crimsonLt + "40", color: C.crimsonLt, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>VC</span>}
+                        </div>
+                      </div>
+                      <span style={{ textAlign: "right", fontSize: 13, color: C.gray }}>{basePts}</span>
+                      <span style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: finalPts > 0 ? C.crimson : C.gray }}>{finalPts}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 0" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>Total</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: C.crimson }}>{gwBreakdown.reduce((s, r) => s + r.finalPts, 0)}</span>
+                  </div>
+                </div>
+              )}
+          </Modal>
+        )}
+      </div>
+    );
+  }
+
+  // ─── DESKTOP LAYOUT ──────────────────────────────────────────────────────────
   return (
     <div style={{ padding: "0 24px 0", height: "calc(100vh - 48px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
@@ -760,7 +995,7 @@ function PlayersPage({ players }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const filtered = useMemo(() => players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))).sort((a, b) => b[sort] - a[sort]), [players, sort, filterRole, search]);
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="Player Database" sub={`${players.length} players · Season 2026-27`} />
       <div style={{ display: "flex", gap: 8, padding: "16px 0 14px", flexWrap: "wrap", alignItems: "center" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 8, padding: "7px 12px", fontSize: 12, outline: "none", minWidth: 180 }} />
@@ -830,7 +1065,7 @@ function ViewTeamsPage({ players }) {
   if (loading) return <Spinner label="Loading teams..." />;
 
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="View Teams" sub={`Gameweek ${ACTIVE_GW} squads`} />
       {transfersOpen ? (
         <div style={{ padding: "60px 0", textAlign: "center" }}>
@@ -909,7 +1144,7 @@ function LeaderboardPage() {
   }, []);
   const hasPoints = entries.some(e => e.total_pts > 0);
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="Leaderboard" sub="Season 2026-27" />
       {loading ? <Spinner label="Loading..." /> : (
         <div style={{ paddingTop: 20 }}>
@@ -985,7 +1220,7 @@ function HistoryPage() {
   const toggleGw = (gw) => setExpandedGw(expandedGw === gw ? null : gw);
 
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="Gameweek History" sub="All past gameweeks and scores" />
       {loading ? <Spinner label="Loading history..." /> : history.length === 0 ? (
         <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No gameweeks completed yet — season starts soon!</div>
@@ -1095,7 +1330,7 @@ function StatsPage({ players }) {
   );
 
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="Season Stats" sub="2026-27 season at a glance" />
       {loading ? (
         <Spinner label="Loading season stats..." />
@@ -1184,7 +1419,7 @@ function StatsPage({ players }) {
 function HowToPlayPage() {
   const [openRule, setOpenRule] = useState(null);
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="How to Play" sub="Everything you need to know about OCC Fantasy" />
       <div style={{ paddingTop: 20 }}>
         {/* Quick scoring reminder */}
@@ -1326,7 +1561,7 @@ function AdminPage({ players }) {
   const filtered = players.filter(p => search === "" || p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ padding: "0 32px 48px" }}>
+    <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
       <Header title="Admin Panel" sub="Score entry · Points calculation · Transfer window" />
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0 12px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -1414,19 +1649,24 @@ export default function App() {
   if (loading) return <div style={{ minHeight: "100vh", background: C.bgDeep }}><style>{globalStyles}</style><Spinner label="Loading OCC Fantasy..." /></div>;
   if (!session) return <><style>{globalStyles}</style><AuthPage /></>;
 
+  const isMobile = window.innerWidth < 768;
+  const pageNeedsMobilePad = isMobile && page !== "squad";
+
   return (
     <div style={{ minHeight: "100vh", background: C.bgDeep }}>
       <style>{globalStyles}</style>
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
-      {page === "squad" && <SquadPage players={players} userId={session.user.id} />}
-      {page === "players" && <PlayersPage players={players} />}
-      {page === "leaderboard" && <LeaderboardPage />}
-      {page === "teams" && <ViewTeamsPage players={players} />}
-      {page === "history" && <HistoryPage />}
-      {page === "stats" && <StatsPage players={players} />}
-      {page === "howtoplay" && <HowToPlayPage />}
-      {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
-      {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} />}
+      <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
+        {page === "squad" && <SquadPage players={players} userId={session.user.id} />}
+        {page === "players" && <PlayersPage players={players} />}
+        {page === "leaderboard" && <LeaderboardPage />}
+        {page === "teams" && <ViewTeamsPage players={players} />}
+        {page === "history" && <HistoryPage />}
+        {page === "stats" && <StatsPage players={players} />}
+        {page === "howtoplay" && <HowToPlayPage />}
+        {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
+        {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} />}
+      </div>
     </div>
   );
 }
