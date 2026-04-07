@@ -463,13 +463,18 @@ function SquadPage({ players, userId }) {
   useEffect(() => {
     const loadAll = async () => {
       const [squadRes, gwRes, myPtsRes, allPtsRes] = await Promise.all([
-        supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW),
+        supabase.from("squads").select("player_id, is_captain, is_vice_captain, purchase_price").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW),
         supabase.from("gameweeks").select("deadline, transfers_open").eq("number", ACTIVE_GW).single(),
         supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW).single(),
         supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", ACTIVE_GW),
       ]);
       if (squadRes.data && squadRes.data.length > 0) {
-        const saved = players.filter(p => squadRes.data.map(r => r.player_id).includes(p.id));
+        // Merge purchase_price from squads table into each player object
+        const purchaseMap = {};
+        squadRes.data.forEach(r => { purchaseMap[r.player_id] = r.purchase_price || 0; });
+        const saved = players
+          .filter(p => squadRes.data.map(r => r.player_id).includes(p.id))
+          .map(p => ({ ...p, purchase_price: purchaseMap[p.id] || p.price }));
         setSquad(saved); setSquadSavedInDb(true);
         const cap = squadRes.data.find(r => r.is_captain);
         const vc = squadRes.data.find(r => r.is_vice_captain);
@@ -506,8 +511,13 @@ function SquadPage({ players, userId }) {
     setLoadingBreakdown(false); setShowGwBreakdown(true);
   };
 
-  const spent = squad.reduce((s, p) => s + p.price, 0);
+  // Budget remaining = 1000 minus what was PAID (purchase prices, locked at time of selection)
+  // Squad value = sum of CURRENT prices (floats with market)
+  // Selling a player returns their CURRENT price to your budget
+  const spent = squad.reduce((s, p) => s + (p.purchase_price || p.price), 0);
   const remaining = BUDGET - spent;
+  const squadValue = squad.reduce((s, p) => s + p.price, 0);
+  const valueGain = squadValue - spent; // positive = squad worth more than you paid
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
   const hasSquad = squadSavedInDb;
@@ -542,7 +552,14 @@ function SquadPage({ players, userId }) {
     if (!viceCaptain) { setSaveMsg("Please assign a vice captain."); return; }
     setSaving(true); setSaveMsg("");
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
-    const { error } = await supabase.from("squads").insert(squad.map(p => ({ user_id: userId, player_id: p.id, gameweek_id: ACTIVE_GW, is_captain: p.id === captain, is_vice_captain: p.id === viceCaptain })));
+    const { error } = await supabase.from("squads").insert(squad.map(p => ({
+      user_id: userId,
+      player_id: p.id,
+      gameweek_id: ACTIVE_GW,
+      is_captain: p.id === captain,
+      is_vice_captain: p.id === viceCaptain,
+      purchase_price: p.purchase_price || p.price, // preserve existing purchase price, or lock current price for new picks
+    })));
     if (error) { setSaveMsg("Error saving squad. Try again."); } else { setSaveMsg("Squad saved!"); setSquadSavedInDb(true); }
     setSaving(false);
   };
@@ -661,7 +678,13 @@ function SquadPage({ players, userId }) {
 
         {/* Status bar */}
         <div style={{ background: C.bgCard, borderTop: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          {[["Budget", `$${remaining}`, remaining < 80 ? C.danger : C.white], ["Players", `${squad.length}/${SQUAD_SIZE}`, C.white], ["Marquee", `${marqueeCount}/${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success], ["Captain", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", C.crimson], ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", C.crimsonLt]].map(([l, v, a]) => (
+          {[
+            ["Budget", `$${remaining}`, remaining < 50 ? C.danger : C.white],
+            ["Value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
+            ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
+            ["Captain", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", C.crimson],
+            ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", C.crimsonLt],
+          ].map(([l, v, a]) => (
             <div key={l} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: a }}>{v}</div>
               <div style={{ fontSize: 8, color: C.gray, marginTop: 1 }}>{l}</div>
@@ -714,7 +737,7 @@ function SquadPage({ players, userId }) {
                       </div>
                       {inSquad
                         ? <button onClick={() => removePlayer(p.id)} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Remove</button>
-                        : <button onClick={() => addable && setSquad(s => [...s, p])} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
+                        : <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
                       }
                     </div>
                   );
@@ -800,7 +823,14 @@ function SquadPage({ players, userId }) {
           {/* Squad status — flex: 1 to grow */}
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 18px", flex: 1 }}>
             <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 14 }}>SQUAD STATUS</div>
-            {[["Budget left", `$${remaining}`, remaining < 80 ? C.danger : C.white], ["Players", `${squad.length} / ${SQUAD_SIZE}`, C.white], ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success], ["Transfers", `${TRANSFERS_PER_GW} / ${TRANSFERS_PER_GW}`, transfersOpen ? C.success : C.gray]].map(([l, v, a]) => (
+            {[
+              ["Budget remaining", `$${remaining}`, remaining < 50 ? C.danger : C.white],
+              ["Squad value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
+              ["Value gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
+              ["Players", `${squad.length} / ${SQUAD_SIZE}`, C.white],
+              ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success],
+              ["Transfers", `${TRANSFERS_PER_GW} / ${TRANSFERS_PER_GW}`, transfersOpen ? C.success : C.gray],
+            ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
                 <span style={{ fontSize: 13, color: C.gray }}>{l}</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: a }}>{v}</span>
@@ -963,7 +993,7 @@ function SquadPage({ players, userId }) {
                       {inSquad ? (
                         <button onClick={() => removePlayer(p.id)} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Remove</button>
                       ) : (
-                        <button onClick={() => addable && setSquad(s => [...s, p])} disabled={!addable} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Add</button>
+                        <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Add</button>
                       )}
                     </div>
                   );
