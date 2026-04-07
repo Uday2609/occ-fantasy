@@ -456,6 +456,10 @@ function SquadPage({ players, userId }) {
   const [gwPoints, setGwPoints] = useState(null);
   const [gwAvg, setGwAvg] = useState(null);
   const [gwHigh, setGwHigh] = useState(null);
+  // budgetUsed tracks using CURRENT prices — so adding/removing a player uses their current price
+  // This means: budget remaining = BUDGET - budgetUsed
+  // And squad value (purchase prices) is tracked separately for the "value gain" display
+  const [budgetUsed, setBudgetUsed] = useState(0);
   const [showGwBreakdown, setShowGwBreakdown] = useState(false);
   const [gwBreakdown, setGwBreakdown] = useState([]);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
@@ -476,6 +480,8 @@ function SquadPage({ players, userId }) {
           .filter(p => squadRes.data.map(r => r.player_id).includes(p.id))
           .map(p => ({ ...p, purchase_price: purchaseMap[p.id] || p.price }));
         setSquad(saved); setSquadSavedInDb(true);
+        // budgetUsed = sum of current prices (not purchase prices) — reflects sell value
+        setBudgetUsed(saved.reduce((s, p) => s + p.price, 0));
         const cap = squadRes.data.find(r => r.is_captain);
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
@@ -511,12 +517,10 @@ function SquadPage({ players, userId }) {
     setLoadingBreakdown(false); setShowGwBreakdown(true);
   };
 
-  const spent = squad.reduce((s, p) => s + (p.purchase_price || p.price), 0);
-  const squadValue = squad.reduce((s, p) => s + p.price, 0);
-  const valueGain = squadValue - spent;
-  // Budget remaining = what you had left at purchase time, plus any gains since
-  // Spent $1000 → $0 left. Stamps +$15 → budget = $15. Remove Stamps → $15 + $175 purchase = $190 freed.
-  const remaining = (BUDGET - spent) + valueGain;
+  const spent = squad.reduce((s, p) => s + (p.purchase_price || p.price), 0); // original purchase cost
+  const squadValue = squad.reduce((s, p) => s + p.price, 0);                 // current market value
+  const valueGain = squadValue - spent;                                        // price movement profit
+  const remaining = BUDGET - budgetUsed;                                       // budget = 1000 minus current prices of squad
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
   const hasSquad = squadSavedInDb;
@@ -531,6 +535,8 @@ function SquadPage({ players, userId }) {
   };
 
   const removePlayer = (id) => {
+    const p = squad.find(x => x.id === id);
+    if (p) setBudgetUsed(b => b - p.price); // free up current price, not purchase price
     setSquad(s => s.filter(x => x.id !== id));
     if (captain === id) setCaptain(null);
     if (viceCaptain === id) setViceCaptain(null);
@@ -678,7 +684,7 @@ function SquadPage({ players, userId }) {
         {/* Status bar */}
         <div style={{ background: C.bgCard, borderTop: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           {[
-            ["Budget", `$${remaining}`, remaining < 50 ? C.danger : C.white],
+            ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
             ["Value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
             ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
             ["Captain", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", C.crimson],
@@ -711,7 +717,7 @@ function SquadPage({ players, userId }) {
               <div style={{ padding: "12px 16px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.white }}>Add Players</div>
                 <div style={{ display: "flex", gap: 12, fontSize: 12, color: C.gray }}>
-                  <span style={{ color: remaining < 80 ? C.danger : C.white, fontWeight: 700 }}>${remaining}</span>
+                  <span style={{ color: remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray, fontWeight: 700 }}>{remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`}</span>
                   <span>{squad.length}/{SQUAD_SIZE}</span>
                 </div>
                 <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: C.gray, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>x</button>
@@ -736,7 +742,7 @@ function SquadPage({ players, userId }) {
                       </div>
                       {inSquad
                         ? <button onClick={() => removePlayer(p.id)} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Remove</button>
-                        : <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
+                        : <button onClick={() => addable && (setBudgetUsed(b => b + p.price), setSquad(s => [...s, { ...p, purchase_price: p.price }]))} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
                       }
                     </div>
                   );
@@ -823,7 +829,7 @@ function SquadPage({ players, userId }) {
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 18px", flex: 1 }}>
             <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, fontWeight: 600, marginBottom: 14 }}>SQUAD STATUS</div>
             {[
-              ["Budget remaining", `$${remaining}`, remaining < 50 ? C.danger : C.white],
+              ["Budget remaining", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
               ["Squad value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
               ["Value gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
               ["Players", `${squad.length} / ${SQUAD_SIZE}`, C.white],
@@ -836,7 +842,7 @@ function SquadPage({ players, userId }) {
               </div>
             ))}
             <div style={{ height: 4, background: C.bgDeep, borderRadius: 2, overflow: "hidden", marginTop: 4 }}>
-              <div style={{ height: "100%", width: `${((BUDGET - remaining) / BUDGET) * 100}%`, background: remaining < 80 ? C.danger : C.crimson, borderRadius: 2, transition: "width 0.3s" }} />
+              <div style={{ height: "100%", width: `${(budgetUsed / BUDGET) * 100}%`, background: remaining < 0 ? C.danger : C.crimson, borderRadius: 2, transition: "width 0.3s" }} />
             </div>
           </div>
 
@@ -924,7 +930,7 @@ function SquadPage({ players, userId }) {
       {showPicker && (
         <div style={{ position: "fixed", inset: 0, background: "#00000090", zIndex: 200, display: "flex", alignItems: "stretch", justifyContent: "center" }} onClick={() => setShowPicker(false)}>
           <div style={{ position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", background: C.bgDeep, border: `1px solid ${C.crimson}40`, borderRadius: 40, padding: "7px 18px", display: "flex", alignItems: "center", gap: 16, zIndex: 210 }} onClick={e => e.stopPropagation()}>
-            <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.gray }}>BUDGET</div><div style={{ fontSize: 16, fontWeight: 700, color: remaining < 80 ? C.danger : C.white }}>${remaining}</div></div>
+            <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.gray }}>BUDGET</div><div style={{ fontSize: 16, fontWeight: 700, color: remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray }}>{remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`}</div></div>
             <div style={{ width: 1, height: 28, background: C.border }} />
             <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.gray }}>PLAYERS</div><div style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{squad.length}<span style={{ fontSize: 11, color: C.gray }}>/{SQUAD_SIZE}</span></div></div>
             <div style={{ width: 1, height: 28, background: C.border }} />
@@ -992,7 +998,7 @@ function SquadPage({ players, userId }) {
                       {inSquad ? (
                         <button onClick={() => removePlayer(p.id)} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Remove</button>
                       ) : (
-                        <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Add</button>
+                        <button onClick={() => addable && (setBudgetUsed(b => b + p.price), setSquad(s => [...s, { ...p, purchase_price: p.price }]))} disabled={!addable} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${addable ? C.crimson + "50" : C.border}`, background: addable ? C.crimson + "15" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Add</button>
                       )}
                     </div>
                   );
