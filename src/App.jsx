@@ -511,13 +511,15 @@ function SquadPage({ players, userId }) {
     setLoadingBreakdown(false); setShowGwBreakdown(true);
   };
 
-  // Budget remaining = 1000 minus what was PAID (purchase prices, locked at time of selection)
-  // Squad value = sum of CURRENT prices (floats with market)
-  // Selling a player returns their CURRENT price to your budget
-  const spent = squad.reduce((s, p) => s + (p.purchase_price || p.price), 0);
-  const remaining = BUDGET - spent;
-  const squadValue = squad.reduce((s, p) => s + p.price, 0);
-  const valueGain = squadValue - spent; // positive = squad worth more than you paid
+  // FPL model:
+  // - Purchase price locked when player added (shown for info)
+  // - Budget remaining = 1000 - current squad value (so selling returns current price)
+  // - Squad value = sum of current prices (rises/falls with admin price changes)
+  // - Value gain = squad value - what you originally paid
+  const spent = squad.reduce((s, p) => s + (p.purchase_price || p.price), 0); // original cost
+  const squadValue = squad.reduce((s, p) => s + p.price, 0); // current value
+  const remaining = BUDGET - squadValue; // budget if you sold everyone at current prices
+  const valueGain = squadValue - spent; // profit vs what you paid
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
   const hasSquad = squadSavedInDb;
