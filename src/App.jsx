@@ -551,18 +551,41 @@ function SquadPage({ players, userId }) {
   const grouped = { BAT: [], BOWL: [], AR: [], WK: [] };
   squad.forEach(p => grouped[p.role].push(p));
 
+  const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
+
   const pitchGroups = { WK: [], BAT: [], AR: [], BOWL: [] };
   squad.forEach(p => { if (pitchGroups[p.role]) pitchGroups[p.role].push(p); });
 
   const PitchCard = ({ p }) => {
     const isC = captain === p.id;
     const isVC = viceCaptain === p.id;
+    const menuOpen = captainMenu === p.id;
     return (
-      <div style={{ background: C.bgCard, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `1px solid ${isC ? C.crimson : isVC ? C.crimsonLt + "70" : p.is_marquee ? C.gold + "40" : C.border}`, flex: 1, minWidth: 0, cursor: "pointer", transition: "border-color 0.15s" }}
-        onClick={() => toggleCaptain(p.id)}>
-        <div style={{ fontSize: 9, color: ROLE_COLORS[p.role], fontWeight: 700, letterSpacing: 0.5 }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.white, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-        <div style={{ fontSize: 9, fontWeight: 700, color: isC ? C.crimson : isVC ? C.crimsonLt : p.is_marquee ? C.gold : C.gray, marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
+      <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+        <div
+          style={{ background: C.bgCard, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `1px solid ${isC ? C.crimson : isVC ? C.crimsonLt + "70" : p.is_marquee ? C.gold + "40" : C.border}`, cursor: "pointer", transition: "border-color 0.15s" }}
+          onClick={e => { e.stopPropagation(); setCaptainMenu(menuOpen ? null : p.id); }}
+        >
+          <div style={{ fontSize: 9, color: ROLE_COLORS[p.role], fontWeight: 700, letterSpacing: 0.5 }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.white, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: isC ? C.crimson : isVC ? C.crimsonLt : C.gray, marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
+        </div>
+        {menuOpen && (
+          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, padding: 4, zIndex: 50, minWidth: 130, boxShadow: "0 6px 20px #00000070", animation: "fadeUp 0.15s ease" }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => { setCaptain(isC ? null : p.id); if (viceCaptain === p.id) setViceCaptain(null); setCaptainMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "8px 10px", background: isC ? C.crimson + "20" : "transparent", border: "none", borderRadius: 5, color: isC ? C.crimson : C.white, fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+            >
+              {isC ? "✓ " : ""} Captain (2x)
+            </button>
+            <button
+              onClick={() => { setViceCaptain(isVC ? null : p.id); if (captain === p.id) setCaptain(null); setCaptainMenu(null); }}
+              style={{ display: "block", width: "100%", padding: "8px 10px", background: isVC ? C.crimsonLt + "20" : "transparent", border: "none", borderRadius: 5, color: isVC ? C.crimsonLt : C.white, fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+            >
+              {isVC ? "✓ " : ""} Vice Captain (1.5x)
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -602,7 +625,7 @@ function SquadPage({ players, userId }) {
         </div>
 
         {/* Pitch */}
-        <div style={{ background: "#0c1a0c", flex: 1, padding: "10px 10px 6px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }}>
+        <div style={{ background: "#0c1a0c", flex: 1, padding: "10px 10px 6px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 6, border: "1px solid #3DBF7A10", borderRadius: 8, pointerEvents: "none" }} />
           <div style={{ fontSize: 8, color: "#3DBF7A70", fontWeight: 700, letterSpacing: 1.5, textAlign: "center", marginBottom: 6 }}>TAP PLAYER TO SET C / VC</div>
           {squad.length === 0 ? (
@@ -818,7 +841,7 @@ function SquadPage({ players, userId }) {
         </div>
 
         {/* RIGHT: PITCH — fills full height, narrower */}
-        <div style={{ background: "#0c1a0c", border: "1px solid #3DBF7A18", borderRadius: 14, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }}>
+        <div style={{ background: "#0c1a0c", border: "1px solid #3DBF7A18", borderRadius: 14, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 8, border: "1px solid #3DBF7A10", borderRadius: 10, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 60, height: 100, border: "1px solid #3DBF7A0A", borderRadius: 4, pointerEvents: "none" }} />
 
