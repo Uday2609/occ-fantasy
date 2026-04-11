@@ -836,7 +836,7 @@ function SquadPage({ players, userId }) {
               </div>
             ))}
             <div style={{ height: 4, background: C.bgDeep, borderRadius: 2, overflow: "hidden", marginTop: 4 }}>
-              <div style={{ height: "100%", width: `${(budgetUsed / BUDGET) * 100}%`, background: remaining < 0 ? C.danger : C.crimson, borderRadius: 2, transition: "width 0.3s" }} />
+              <div style={{ height: "100%", width: `${(purchaseCost / BUDGET) * 100}%`, background: remaining < 0 ? C.danger : C.crimson, borderRadius: 2, transition: "width 0.3s" }} />
             </div>
           </div>
 
