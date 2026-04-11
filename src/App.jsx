@@ -480,8 +480,8 @@ function SquadPage({ players, userId }) {
           .filter(p => squadRes.data.map(r => r.player_id).includes(p.id))
           .map(p => ({ ...p, purchase_price: purchaseMap[p.id] ?? p.price }));
         setSquad(saved); setSquadSavedInDb(true);
-        // budgetUsed = sum of purchase prices (what was paid)
-        setBudgetUsed(saved.reduce((s, p) => s + (p.purchase_price ?? p.price), 0));
+        // budgetUsed = sum of CURRENT prices so that removing a player frees up their current sell value
+        setBudgetUsed(saved.reduce((s, p) => s + p.price, 0));
         const cap = squadRes.data.find(r => r.is_captain);
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
@@ -535,7 +535,7 @@ function SquadPage({ players, userId }) {
 
   const removePlayer = (id) => {
     const p = squad.find(x => x.id === id);
-    if (p) setBudgetUsed(b => b - (p.purchase_price ?? p.price)); // free up purchase price
+    if (p) setBudgetUsed(b => b - p.price); // free up CURRENT price (sell value)
     setSquad(s => s.filter(x => x.id !== id));
     if (captain === id) setCaptain(null);
     if (viceCaptain === id) setViceCaptain(null);
