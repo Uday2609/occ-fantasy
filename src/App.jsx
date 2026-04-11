@@ -475,13 +475,13 @@ function SquadPage({ players, userId }) {
       if (squadRes.data && squadRes.data.length > 0) {
         // Merge purchase_price from squads table into each player object
         const purchaseMap = {};
-        squadRes.data.forEach(r => { purchaseMap[r.player_id] = r.purchase_price || 0; });
+        squadRes.data.forEach(r => { purchaseMap[r.player_id] = (r.purchase_price != null && r.purchase_price > 0) ? r.purchase_price : null; });
         const saved = players
           .filter(p => squadRes.data.map(r => r.player_id).includes(p.id))
-          .map(p => ({ ...p, purchase_price: purchaseMap[p.id] || p.price }));
+          .map(p => ({ ...p, purchase_price: purchaseMap[p.id] ?? p.price }));
         setSquad(saved); setSquadSavedInDb(true);
-        // budgetUsed = sum of current prices (not purchase prices) — reflects sell value
-        setBudgetUsed(saved.reduce((s, p) => s + p.price, 0));
+        // budgetUsed = sum of purchase prices (what was paid)
+        setBudgetUsed(saved.reduce((s, p) => s + (p.purchase_price ?? p.price), 0));
         const cap = squadRes.data.find(r => r.is_captain);
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
@@ -517,10 +517,9 @@ function SquadPage({ players, userId }) {
     setLoadingBreakdown(false); setShowGwBreakdown(true);
   };
 
-  const spent = squad.reduce((s, p) => s + (p.purchase_price || p.price), 0); // original purchase cost
-  const squadValue = squad.reduce((s, p) => s + p.price, 0);                 // current market value
-  const valueGain = squadValue - spent;                                        // price movement profit
-  const remaining = BUDGET - budgetUsed;                                       // budget = 1000 minus current prices of squad
+  const squadValue = squad.reduce((s, p) => s + p.price, 0);  // current market value (changes with admin price updates)
+  const remaining = BUDGET - budgetUsed;                          // budget = 1000 minus what you paid
+  const valueGain = squadValue - budgetUsed;                      // gain = current value minus what you paid
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
   const hasSquad = squadSavedInDb;
@@ -536,7 +535,7 @@ function SquadPage({ players, userId }) {
 
   const removePlayer = (id) => {
     const p = squad.find(x => x.id === id);
-    if (p) setBudgetUsed(b => b - p.price); // free up current price, not purchase price
+    if (p) setBudgetUsed(b => b - (p.purchase_price ?? p.price)); // free up purchase price
     setSquad(s => s.filter(x => x.id !== id));
     if (captain === id) setCaptain(null);
     if (viceCaptain === id) setViceCaptain(null);
@@ -563,7 +562,7 @@ function SquadPage({ players, userId }) {
       gameweek_id: ACTIVE_GW,
       is_captain: p.id === captain,
       is_vice_captain: p.id === viceCaptain,
-      purchase_price: p.purchase_price || p.price, // preserve existing purchase price, or lock current price for new picks
+      purchase_price: p.purchase_price ?? p.price, // preserve existing purchase price, or lock current price for new picks
     })));
     if (error) { setSaveMsg("Error saving squad. Try again."); } else { setSaveMsg("Squad saved!"); setSquadSavedInDb(true); }
     setSaving(false);
