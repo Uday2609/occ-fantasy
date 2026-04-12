@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 
 const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
-const ACTIVE_GW = 1;
+// activeGw is now loaded dynamically from the gameweeks table (is_active = true)
 
 const C = {
   bg: "#1C2131", bgDeep: "#141926", bgCard: "#242C3E", bgCardHov: "#2C3550",
@@ -440,7 +440,7 @@ function PlayerProfileModal({ player, onClose }) {
 
 // --- SQUAD PAGE ---
 
-function SquadPage({ players, userId }) {
+function SquadPage({ players, userId, activeGw }) {
   const [squad, setSquad] = useState([]);
   const [captain, setCaptain] = useState(null);
   const [viceCaptain, setViceCaptain] = useState(null);
@@ -465,10 +465,10 @@ function SquadPage({ players, userId }) {
   useEffect(() => {
     const loadAll = async () => {
       const [squadRes, gwRes, myPtsRes, allPtsRes] = await Promise.all([
-        supabase.from("squads").select("player_id, is_captain, is_vice_captain, purchase_price").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW),
-        supabase.from("gameweeks").select("deadline, transfers_open").eq("number", ACTIVE_GW).single(),
-        supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW).single(),
-        supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", ACTIVE_GW),
+        supabase.from("squads").select("player_id, is_captain, is_vice_captain, purchase_price").eq("user_id", userId).eq("gameweek_id", activeGw),
+        supabase.from("gameweeks").select("deadline, transfers_open").eq("number", activeGw).single(),
+        supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", activeGw).single(),
+        supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", activeGw),
       ]);
       if (squadRes.data && squadRes.data.length > 0) {
         // Merge purchase_price from squads table into each player object
@@ -498,8 +498,8 @@ function SquadPage({ players, userId }) {
 
   const loadGwBreakdown = async () => {
     setLoadingBreakdown(true);
-    const { data: squadData } = await supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
-    const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", ACTIVE_GW);
+    const { data: squadData } = await supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", activeGw);
+    const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", activeGw);
     if (squadData && scoreData) {
       const scoreMap = {};
       scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
@@ -557,11 +557,11 @@ function SquadPage({ players, userId }) {
     if (!captain) { setSaveMsg("Please assign a captain."); return; }
     if (!viceCaptain) { setSaveMsg("Please assign a vice captain."); return; }
     setSaving(true); setSaveMsg("");
-    await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", ACTIVE_GW);
+    await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", activeGw);
     const { error } = await supabase.from("squads").insert(squad.map(p => ({
       user_id: userId,
       player_id: p.id,
-      gameweek_id: ACTIVE_GW,
+      gameweek_id: activeGw,
       is_captain: p.id === captain,
       is_vice_captain: p.id === viceCaptain,
       purchase_price: p.purchase_price ?? p.price, // preserve existing purchase price, or lock current price for new picks
@@ -625,7 +625,7 @@ function SquadPage({ players, userId }) {
         {/* Score strip */}
         <div style={{ background: `linear-gradient(135deg,${C.crimson}22,${C.bgCard})`, borderBottom: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 0 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>GW{ACTIVE_GW}</div>
+            <div style={{ fontSize: 9, color: C.gray, letterSpacing: 1 }}>GW{activeGw}</div>
             {gwPoints !== null ? (
               <div onClick={loadGwBreakdown} style={{ fontSize: 28, fontWeight: 700, color: C.crimson, lineHeight: 1, cursor: "pointer" }}>{gwPoints} <span style={{ fontSize: 11, color: C.crimson }}>pts — tap</span></div>
             ) : (
@@ -755,7 +755,7 @@ function SquadPage({ players, userId }) {
 
         {/* GW breakdown modal */}
         {showGwBreakdown && (
-          <Modal title={`GW${ACTIVE_GW} Breakdown`} onClose={() => setShowGwBreakdown(false)}>
+          <Modal title={`GW${activeGw} Breakdown`} onClose={() => setShowGwBreakdown(false)}>
             {loadingBreakdown ? <Spinner label="Loading..." /> : gwBreakdown.length === 0
               ? <div style={{ textAlign: "center", color: C.gray, padding: "20px 0" }}>No scores yet.</div>
               : (
@@ -793,7 +793,7 @@ function SquadPage({ players, userId }) {
       <div style={{ padding: "14px 0 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 9, color: C.crimson, letterSpacing: 3, fontWeight: 600, marginBottom: 2 }}>OAKLEIGH CRICKET CLUB</div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.white }}>My Squad — GW{ACTIVE_GW}</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.white }}>My Squad — GW{activeGw}</h1>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {deadline && <Countdown deadline={deadline} />}
@@ -810,7 +810,7 @@ function SquadPage({ players, userId }) {
 
           {/* GW Score */}
           <div style={{ background: `linear-gradient(135deg,${C.crimson}22,${C.bgCard})`, border: `1px solid ${C.crimson}40`, borderRadius: 12, padding: "16px 18px", flexShrink: 0 }}>
-            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, marginBottom: 4 }}>GW{ACTIVE_GW} SCORE</div>
+            <div style={{ fontSize: 10, color: C.gray, letterSpacing: 1, marginBottom: 4 }}>GW{activeGw} SCORE</div>
             {gwPoints !== null ? (
               <>
                 <div onClick={loadGwBreakdown} style={{ fontSize: 42, fontWeight: 700, color: C.crimson, lineHeight: 1, cursor: "pointer" }}>{gwPoints}</div>
@@ -1011,7 +1011,7 @@ function SquadPage({ players, userId }) {
       )}
 
       {showGwBreakdown && (
-        <Modal title={`GW${ACTIVE_GW} Points Breakdown`} onClose={() => setShowGwBreakdown(false)}>
+        <Modal title={`GW${activeGw} Points Breakdown`} onClose={() => setShowGwBreakdown(false)}>
           {loadingBreakdown ? <Spinner label="Loading..." /> : (
             gwBreakdown.length === 0 ? <div style={{ textAlign: "center", color: C.gray, padding: "20px 0" }}>No scores calculated yet for this gameweek.</div> : (
               <div>
@@ -1090,7 +1090,7 @@ function PlayersPage({ players }) {
 
 // --- VIEW TEAMS PAGE ---
 
-function ViewTeamsPage({ players }) {
+function ViewTeamsPage({ players, activeGw }) {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [transfersOpen, setTransfersOpen] = useState(true);
@@ -1098,11 +1098,11 @@ function ViewTeamsPage({ players }) {
 
   useEffect(() => {
     const load = async () => {
-      const { data: gwData } = await supabase.from("gameweeks").select("transfers_open").eq("number", ACTIVE_GW).single();
+      const { data: gwData } = await supabase.from("gameweeks").select("transfers_open").eq("number", activeGw).single();
       if (gwData) setTransfersOpen(gwData.transfers_open);
       if (!gwData?.transfers_open) {
         const { data: profiles } = await supabase.from("profiles").select("id, team_name, username, total_pts");
-        const { data: squads } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", ACTIVE_GW);
+        const { data: squads } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", activeGw);
         if (profiles && squads) {
           const result = profiles.map(prof => {
             const squadEntries = squads.filter(s => s.user_id === prof.id);
@@ -1125,7 +1125,7 @@ function ViewTeamsPage({ players }) {
 
   return (
     <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)" }}>
-      <Header title="View Teams" sub={`Gameweek ${ACTIVE_GW} squads`} />
+      <Header title="View Teams" sub={`Gameweek ${activeGw} squads`} />
       {transfersOpen ? (
         <div style={{ padding: "60px 0", textAlign: "center" }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: C.gold + "20", border: `1px solid ${C.gold}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>&#128274;</div>
@@ -1523,13 +1523,14 @@ function HowToPlayPage() {
 
 // --- ADMIN PAGE ---
 
-function AdminPage({ players }) {
-  const [gw, setGw] = useState(ACTIVE_GW);
+function AdminPage({ players, activeGw, setActiveGw }) {
+  const [gw, setGw] = useState(activeGw);
   const [scores, setScores] = useState({});
   const [saving, setSaving] = useState(false); const [calculating, setCalculating] = useState(false);
   const [msg, setMsg] = useState(""); const [msgType, setMsgType] = useState("success");
   const [search, setSearch] = useState(""); const [existingScores, setExistingScores] = useState({});
   const [transfersOpen, setTransfersOpen] = useState(false); const [togglingWindow, setTogglingWindow] = useState(false);
+  const [advancing, setAdvancing] = useState(false); const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -1558,6 +1559,60 @@ function AdminPage({ players }) {
     if (!error) { setTransfersOpen(newVal); setMsg(`Transfer window ${newVal ? "opened" : "closed"} for GW${gw}.`); setMsgType("success"); }
     else { setMsg("Failed to update transfer window."); setMsgType("danger"); }
     setTogglingWindow(false);
+  };
+
+  const advanceGameweek = async () => {
+    setAdvancing(true); setMsg(""); setShowAdvanceConfirm(false);
+    const nextGw = activeGw + 1;
+    try {
+      // 1. Close and deactivate current GW
+      await supabase.from("gameweeks").update({ is_active: false, transfers_open: false }).eq("number", activeGw);
+
+      // 2. Create the new gameweek row
+      const nextDeadline = new Date();
+      nextDeadline.setDate(nextDeadline.getDate() + 7); // default deadline 7 days from now
+      const { error: gwError } = await supabase.from("gameweeks").insert({
+        number: nextGw,
+        deadline: nextDeadline.toISOString(),
+        deadline_passed: false,
+        is_active: true,
+        transfers_open: false,
+      });
+      if (gwError) throw new Error("Failed to create new gameweek: " + gwError.message);
+
+      // 3. Copy every user's current squad into the new gameweek
+      // (users keep their squad unless they make transfers)
+      const { data: currentSquads } = await supabase
+        .from("squads")
+        .select("user_id, player_id, is_captain, is_vice_captain, purchase_price")
+        .eq("gameweek_id", activeGw);
+
+      if (currentSquads && currentSquads.length > 0) {
+        const newSquadRows = currentSquads.map(s => ({
+          user_id: s.user_id,
+          player_id: s.player_id,
+          gameweek_id: nextGw,
+          is_captain: s.is_captain,
+          is_vice_captain: s.is_vice_captain,
+          purchase_price: s.purchase_price,
+        }));
+        const { error: squadError } = await supabase.from("squads").insert(newSquadRows);
+        if (squadError) throw new Error("Failed to copy squads: " + squadError.message);
+      }
+
+      // 4. Update active GW in app state
+      setActiveGw(nextGw);
+      setGw(nextGw);
+      setScores({});
+      setExistingScores({});
+      setTransfersOpen(false);
+      setMsg(`GW${nextGw} is now active! ${currentSquads?.length || 0} squad rows copied. Set the deadline in Supabase and open the transfer window when ready.`);
+      setMsgType("success");
+    } catch (e) {
+      setMsg(e.message);
+      setMsgType("danger");
+    }
+    setAdvancing(false);
   };
 
   const saveScores = async () => {
@@ -1626,12 +1681,30 @@ function AdminPage({ players }) {
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <span style={{ fontSize: 12, color: C.gray }}>Gameweek</span>
           <input type="number" min="1" value={gw} onChange={e => setGw(parseInt(e.target.value) || 1)} style={{ width: 56, background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 7, padding: "6px 9px", fontSize: 13, outline: "none", textAlign: "center" }} />
+          <span style={{ fontSize: 11, color: C.gray }}>(active: GW{activeGw})</span>
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: C.bgCard, border: `1px solid ${C.border}`, color: C.white, borderRadius: 7, padding: "6px 11px", fontSize: 12, outline: "none", minWidth: 170 }} />
         <button onClick={saveScores} disabled={saving} style={{ padding: "8px 16px", borderRadius: 7, border: "none", background: saving ? C.bgCard : C.gold, color: C.bgDeep, fontWeight: 700, fontSize: 12, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save Scores"}</button>
         <button onClick={calculatePoints} disabled={calculating} style={{ padding: "8px 16px", borderRadius: 7, border: "none", background: calculating ? C.bgCard : C.success, color: C.white, fontWeight: 700, fontSize: 12, cursor: calculating ? "default" : "pointer" }}>{calculating ? "Calculating..." : "Calculate Points"}</button>
         <button onClick={toggleTransferWindow} disabled={togglingWindow} style={{ padding: "8px 16px", borderRadius: 7, border: `1px solid ${transfersOpen ? C.success : C.crimson}50`, background: transfersOpen ? C.success + "15" : C.crimson + "15", color: transfersOpen ? C.success : C.crimson, fontWeight: 700, fontSize: 12, cursor: togglingWindow ? "default" : "pointer" }}>{togglingWindow ? "Updating..." : transfersOpen ? "Close Transfer Window" : "Open Transfer Window"}</button>
+        <button onClick={() => setShowAdvanceConfirm(true)} disabled={advancing} style={{ padding: "8px 16px", borderRadius: 7, border: `1px solid ${C.indigo}50`, background: C.indigo + "15", color: C.indigo, fontWeight: 700, fontSize: 12, cursor: advancing ? "default" : "pointer" }}>
+          {advancing ? "Advancing..." : `Advance to GW${activeGw + 1}`}
+        </button>
       </div>
+
+      {/* Advance GW confirmation dialog */}
+      {showAdvanceConfirm && (
+        <div style={{ background: C.bgCard, border: `1px solid ${C.indigo}40`, borderRadius: 10, padding: "16px 18px", marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 6 }}>Advance to GW{activeGw + 1}?</div>
+          <div style={{ fontSize: 13, color: C.gray, marginBottom: 14, lineHeight: 1.6 }}>
+            This will close GW{activeGw}, create GW{activeGw + 1} as the active gameweek, and copy all existing squads into the new gameweek. Make sure you have saved scores and calculated points for GW{activeGw} before advancing.
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={advanceGameweek} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.indigo, color: C.white, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Yes, advance</button>
+            <button onClick={() => setShowAdvanceConfirm(false)} style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.gray, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
       {msg && <div style={{ marginBottom: 14, padding: "9px 14px", borderRadius: 7, fontSize: 12, background: C[msgType] + "15", color: C[msgType], border: `1px solid ${C[msgType]}30` }}>{msg}</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {filtered.map(p => (
@@ -1676,6 +1749,7 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeGw, setActiveGw] = useState(1);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1691,12 +1765,14 @@ export default function App() {
 
   const loadAppData = async (userId) => {
     setLoading(true);
-    const [{ data: pd }, { data: prof }] = await Promise.all([
+    const [{ data: pd }, { data: prof }, { data: gwData }] = await Promise.all([
       supabase.from("players").select("*").order("price", { ascending: false }),
       supabase.from("profiles").select("*").eq("id", userId).single(),
+      supabase.from("gameweeks").select("number").eq("is_active", true).order("number", { ascending: false }).limit(1).single(),
     ]);
     if (pd) setPlayers(pd);
     if (prof) setProfile(prof);
+    if (gwData) setActiveGw(gwData.number);
     setLoading(false);
   };
 
@@ -1716,15 +1792,15 @@ export default function App() {
       <style>{globalStyles}</style>
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
       <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
-        {page === "squad" && <SquadPage players={players} userId={session.user.id} />}
+        {page === "squad" && <SquadPage players={players} userId={session.user.id} activeGw={activeGw} />}
         {page === "players" && <PlayersPage players={players} />}
         {page === "leaderboard" && <LeaderboardPage />}
-        {page === "teams" && <ViewTeamsPage players={players} />}
+        {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} />}
         {page === "history" && <HistoryPage />}
         {page === "stats" && <StatsPage players={players} />}
         {page === "howtoplay" && <HowToPlayPage />}
         {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
-        {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} />}
+        {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} activeGw={activeGw} setActiveGw={setActiveGw} />}
       </div>
     </div>
   );
