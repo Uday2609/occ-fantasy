@@ -38,7 +38,7 @@ const RULES = [
   { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 4 All-rounders, Max 3 Keepers." },
   { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
-  { title: "Transfers", desc: "4 transfers per gameweek. Window opens after Thursday selection." },
+  { title: "Transfers", desc: "GW1 is unlimited — build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. Each additional transfer beyond 4 costs -10 points from your GW score." },
   { title: "Deadlines", desc: "Transfer deadline is Friday night. Late transfers not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores — runs, wickets, catches, run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
@@ -458,6 +458,7 @@ function SquadPage({ players, userId, activeGw }) {
   const [gwHigh, setGwHigh] = useState(null);
   // budgetUsed removed — remaining now calculated purely from purchaseCost and valueGain
   const [soldGains, setSoldGains] = useState(0); // cumulative extra budget from selling risen players
+  const [transfersUsed, setTransfersUsed] = useState(0); // transfers used this GW
   const [showGwBreakdown, setShowGwBreakdown] = useState(false);
   const [gwBreakdown, setGwBreakdown] = useState([]);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
@@ -483,6 +484,17 @@ function SquadPage({ players, userId, activeGw }) {
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
         if (vc) setViceCaptain(vc.player_id);
+
+        // Calculate how many transfers used this GW (compare vs prev GW squad)
+        if (activeGw > 1) {
+          const { data: prevSquad } = await supabase
+            .from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", activeGw - 1);
+          if (prevSquad) {
+            const prevIds = new Set(prevSquad.map(r => r.player_id));
+            const used = squadRes.data.filter(r => !prevIds.has(r.player_id)).length;
+            setTransfersUsed(used);
+          }
+        }
       }
       if (gwRes.data) { setTransfersOpen(gwRes.data.transfers_open); setDeadline(gwRes.data.deadline); }
       if (myPtsRes.data) setGwPoints(myPtsRes.data.total_pts);
@@ -557,6 +569,29 @@ function SquadPage({ players, userId, activeGw }) {
     if (!captain) { setSaveMsg("Please assign a captain."); return; }
     if (!viceCaptain) { setSaveMsg("Please assign a vice captain."); return; }
     setSaving(true); setSaveMsg("");
+
+    // Count transfers vs previous GW (only enforced from GW2 onwards)
+    let transferPenalty = 0;
+    let transfersUsed = 0;
+    if (activeGw > 1) {
+      const { data: prevSquad } = await supabase
+        .from("squads")
+        .select("player_id, purchase_price")
+        .eq("user_id", userId)
+        .eq("gameweek_id", activeGw - 1);
+
+      if (prevSquad) {
+        const prevIds = new Set(prevSquad.map(r => r.player_id));
+        const newIds = new Set(squad.map(p => p.id));
+        // Count players in new squad that weren't in previous squad = transfers in
+        const transfersIn = [...newIds].filter(id => !prevIds.has(id)).length;
+        transfersUsed = transfersIn;
+        const extraTransfers = Math.max(0, transfersIn - TRANSFERS_PER_GW);
+        transferPenalty = extraTransfers * 10;
+      }
+    }
+
+    // Save the squad
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", activeGw);
     const { error } = await supabase.from("squads").insert(squad.map(p => ({
       user_id: userId,
@@ -564,9 +599,29 @@ function SquadPage({ players, userId, activeGw }) {
       gameweek_id: activeGw,
       is_captain: p.id === captain,
       is_vice_captain: p.id === viceCaptain,
-      purchase_price: p.purchase_price ?? p.price, // preserve existing purchase price, or lock current price for new picks
+      purchase_price: p.purchase_price ?? p.price,
     })));
-    if (error) { setSaveMsg("Error saving squad. Try again."); } else { setSaveMsg("Squad saved!"); setSquadSavedInDb(true); }
+
+    if (error) {
+      setSaveMsg("Error saving squad. Try again.");
+    } else {
+      setSquadSavedInDb(true);
+      setTransfersUsed(transfersUsed);
+      // Store the penalty in fantasy_points so Calculate Points can apply it
+      if (activeGw > 1) {
+        await supabase.from("fantasy_points").upsert(
+          { user_id: userId, gameweek_id: activeGw, transfer_penalty: transferPenalty, raw_pts: 0, total_pts: 0 },
+          { onConflict: "user_id,gameweek_id" }
+        );
+      }
+      if (transferPenalty > 0) {
+        setSaveMsg(`Squad saved! ${transfersUsed} transfers used — ${transfersUsed - TRANSFERS_PER_GW} extra, -${transferPenalty} point penalty applied.`);
+      } else if (activeGw > 1 && transfersUsed > 0) {
+        setSaveMsg(`Squad saved! ${transfersUsed} transfer${transfersUsed > 1 ? "s" : ""} used (${TRANSFERS_PER_GW - transfersUsed} free remaining).`);
+      } else {
+        setSaveMsg("Squad saved!");
+      }
+    }
     setSaving(false);
   };
 
@@ -688,6 +743,7 @@ function SquadPage({ players, userId, activeGw }) {
             ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
             ["Value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
             ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
+            ["Xfers", activeGw === 1 ? "Free" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : C.success],
             ["Captain", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", C.crimson],
             ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", C.crimsonLt],
           ].map(([l, v, a]) => (
@@ -835,7 +891,7 @@ function SquadPage({ players, userId, activeGw }) {
               ["Value gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
               ["Players", `${squad.length} / ${SQUAD_SIZE}`, C.white],
               ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success],
-              ["Transfers", `${TRANSFERS_PER_GW} / ${TRANSFERS_PER_GW}`, transfersOpen ? C.success : C.gray],
+              ["Transfers", activeGw === 1 ? "Unlimited" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left${transfersUsed > TRANSFERS_PER_GW ? ` (-${(transfersUsed - TRANSFERS_PER_GW) * 10}pts)` : ""}`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
                 <span style={{ fontSize: 13, color: C.gray }}>{l}</span>
@@ -1634,12 +1690,20 @@ function AdminPage({ players, activeGw, setActiveGw }) {
     const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", gw);
     const scoreMap = {};
     if (scoreData) scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
+
+    // Fetch any transfer penalties already saved for this GW
+    const { data: penaltyData } = await supabase.from("fantasy_points").select("user_id, transfer_penalty").eq("gameweek_id", gw);
+    const penaltyMap = {};
+    if (penaltyData) penaltyData.forEach(r => { penaltyMap[r.user_id] = r.transfer_penalty || 0; });
+
     const userSquads = {};
     squadData.forEach(row => { if (!userSquads[row.user_id]) userSquads[row.user_id] = []; userSquads[row.user_id].push(row); });
     const pointsRows = Object.entries(userSquads).map(([userId, squad]) => {
       let total = 0;
       squad.forEach(entry => { let pts = scoreMap[entry.player_id] || 0; if (entry.is_captain) pts *= 2; else if (entry.is_vice_captain) pts *= 1.5; total += pts; });
-      return { user_id: userId, gameweek_id: gw, raw_pts: Math.round(total), total_pts: Math.round(total) };
+      const penalty = penaltyMap[userId] || 0;
+      const finalPts = Math.max(0, Math.round(total) - penalty);
+      return { user_id: userId, gameweek_id: gw, raw_pts: Math.round(total), transfer_penalty: penalty, total_pts: finalPts };
     });
     await supabase.from("fantasy_points").upsert(pointsRows, { onConflict: "user_id,gameweek_id" });
     for (const { user_id } of pointsRows) {
@@ -1654,7 +1718,9 @@ function AdminPage({ players, activeGw, setActiveGw }) {
     for (const [pid, pts] of Object.entries(playerPts)) {
       await supabase.from("players").update({ pts, mp: playerMp[pid] || 0 }).eq("id", parseInt(pid));
     }
-    setMsg(`Points calculated for ${pointsRows.length} managers! Player stats updated.`); setMsgType("success");
+    const penaltyUsers = Object.values(penaltyMap).filter(p => p > 0).length;
+    setMsg(`Points calculated for ${pointsRows.length} managers!${penaltyUsers > 0 ? ` Transfer penalties applied to ${penaltyUsers} manager${penaltyUsers > 1 ? "s" : ""}.` : ""}`);
+    setMsgType("success");
     setCalculating(false);
   };
 
