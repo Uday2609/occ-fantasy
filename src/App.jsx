@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabase";
 
 const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
@@ -18,7 +18,6 @@ const BUDGET = 1000;
 const ROLE_LIMITS = { BAT: 5, BOWL: 5, AR: 4, WK: 3 };
 const SQUAD_SIZE = 15;
 const TRANSFERS_PER_GW = 4;
-const MARQUEE_PRICE = 100;
 const MAX_MARQUEE = 3;
 
 const SCORING = [
@@ -104,18 +103,6 @@ function Inp({ label, type = "text", value, onChange, placeholder }) {
 function RoleBadge({ role }) {
   const c = ROLE_COLORS[role];
   return <span style={{ background: c + "20", color: c, border: `1px solid ${c}40`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>{ROLE_LABELS[role]}</span>;
-}
-
-function StatCard({ label, value, accent, onClick, sub }) {
-  return (
-    <div onClick={onClick} style={{ background: C.bgCard, borderRadius: 10, padding: "12px 14px", border: `1px solid ${(accent || C.crimson)}20`, textAlign: "center", cursor: onClick ? "pointer" : "default", transition: "border-color 0.15s" }}
-      onMouseEnter={e => onClick && (e.currentTarget.style.borderColor = (accent || C.crimson) + "50")}
-      onMouseLeave={e => onClick && (e.currentTarget.style.borderColor = (accent || C.crimson) + "20")}>
-      <div style={{ fontSize: 20, fontWeight: 700, color: accent || C.white }}>{value}</div>
-      <div style={{ fontSize: 10, color: C.gray, marginTop: 2, letterSpacing: 0.3 }}>{label}</div>
-      {sub && <div style={{ fontSize: 10, color: accent || C.crimson, marginTop: 3 }}>{sub}</div>}
-    </div>
-  );
 }
 
 function Header({ title, sub }) {
@@ -1310,7 +1297,6 @@ function HistoryPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedGw, setExpandedGw] = useState(null);
-  const [gwDetails, setGwDetails] = useState({});
 
   useEffect(() => {
     const load = async () => {
