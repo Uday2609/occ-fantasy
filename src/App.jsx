@@ -1863,8 +1863,6 @@ export default function App() {
     }, 60000); // check every 60 seconds
     return () => clearInterval(interval);
   }, []);
-    setLoading(false);
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -1894,3 +1892,4 @@ export default function App() {
       </div>
     </div>
   );
+}
