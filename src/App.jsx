@@ -1592,13 +1592,13 @@ function AdminPage({ players, activeGw, setActiveGw }) {
     const load = async () => {
       const [scoreRes, gwRes] = await Promise.all([
         supabase.from("gameweek_scores").select("*").eq("gameweek_id", gw),
-        supabase.from("gameweeks").select("transfers_open").eq("number", gw).single(),
+        supabase.from("gameweeks").select("transfers_open").eq("number", activeGw).single(), // always read window from ACTIVE gw
       ]);
       if (scoreRes.data) { const map = {}; scoreRes.data.forEach(r => { map[r.player_id] = r; }); setExistingScores(map); setScores({}); }
       if (gwRes.data) setTransfersOpen(gwRes.data.transfers_open);
     };
     load();
-  }, [gw]);
+  }, [gw, activeGw]);
 
   const getVal = (pid, field) => {
     if (scores[pid]?.[field] !== undefined) return scores[pid][field];
@@ -1611,8 +1611,9 @@ function AdminPage({ players, activeGw, setActiveGw }) {
   const toggleTransferWindow = async () => {
     setTogglingWindow(true);
     const newVal = !transfersOpen;
-    const { error } = await supabase.from("gameweeks").update({ transfers_open: newVal }).eq("number", gw);
-    if (!error) { setTransfersOpen(newVal); setMsg(`Transfer window ${newVal ? "opened" : "closed"} for GW${gw}.`); setMsgType("success"); }
+    // Always toggle on the ACTIVE gameweek, not the score-entry selector
+    const { error } = await supabase.from("gameweeks").update({ transfers_open: newVal }).eq("number", activeGw);
+    if (!error) { setTransfersOpen(newVal); setMsg(`Transfer window ${newVal ? "opened" : "closed"} for GW${activeGw}.`); setMsgType("success"); }
     else { setMsg("Failed to update transfer window."); setMsgType("danger"); }
     setTogglingWindow(false);
   };
@@ -1837,8 +1838,31 @@ export default function App() {
       supabase.from("gameweeks").select("number").eq("is_active", true).order("number", { ascending: false }).limit(1).single(),
     ]);
     if (pd) setPlayers(pd);
-    if (prof) setProfile(prof);
     if (gwData) setActiveGw(gwData.number);
+    // If profile is missing, user has been deleted — force sign out immediately
+    if (!prof) {
+      await supabase.auth.signOut();
+      setSession(null); setProfile(null); setPlayers([]); setLoading(false);
+      return;
+    }
+    setProfile(prof);
+    setLoading(false);
+  };
+
+  // Poll every 60 seconds to check if the user's profile still exists
+  // This catches cases where admin deletes a user while they're logged in
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) return;
+      const { data: prof } = await supabase.from("profiles").select("id").eq("id", currentSession.user.id).single();
+      if (!prof) {
+        await supabase.auth.signOut();
+        setSession(null); setProfile(null); setPlayers([]);
+      }
+    }, 60000); // check every 60 seconds
+    return () => clearInterval(interval);
+  }, []);
     setLoading(false);
   };
 
@@ -1870,4 +1894,3 @@ export default function App() {
       </div>
     </div>
   );
-}
