@@ -207,7 +207,7 @@ function LoginForm() {
       <Inp label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
       <Inp label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" />
       {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 3 }}>{error}</div>}
-      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? C.bgCard : C.crimson, color: C.black, fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Logging in..." : "Log in"}</button>
+      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? "#eeeeee" : "#111111", color: loading ? "#888" : "#ffffff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Logging in..." : "Log in"}</button>
     </div>
   );
 }
@@ -233,7 +233,7 @@ function SignupForm() {
       <Inp label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" />
       <Inp label="Confirm password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat your password" />
       {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 3 }}>{error}</div>}
-      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? C.bgCard : C.crimson, color: C.black, fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Creating account..." : "Create account"}</button>
+      <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? "#eeeeee" : "#111111", color: loading ? "#888" : "#ffffff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Creating account..." : "Create account"}</button>
     </div>
   );
 }
@@ -365,7 +365,7 @@ function AccountPage({ user, profile, onLogout }) {
         <div style={{ background: C.bg, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: C.black, marginBottom: 14 }}>Team name</div>
           <Inp value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Howes XI" />
-          <button onClick={saveTeamName} disabled={saving} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: saving ? C.bg : C.crimson, color: C.black, fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save"}</button>
+          <button onClick={saveTeamName} disabled={saving} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save"}</button>
           {saveMsg && <div style={{ marginTop: 10, fontSize: 12, color: saveMsg.includes("!") ? C.success : C.danger }}>{saveMsg}</div>}
         </div>
         <div style={{ background: C.bg, borderRadius: 12, padding: 20, border: `1px solid ${C.danger}30` }}>
@@ -379,7 +379,7 @@ function AccountPage({ user, profile, onLogout }) {
               <Inp value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} placeholder={user.email} />
               {deleteMsg && <div style={{ fontSize: 12, color: C.danger, marginBottom: 8 }}>{deleteMsg}</div>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={deleteAccount} disabled={deleting} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.danger, color: C.black, fontSize: 13, fontWeight: 700, cursor: deleting ? "default" : "pointer" }}>{deleting ? "Deleting..." : "Confirm delete"}</button>
+                <button onClick={deleteAccount} disabled={deleting} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.danger, color: "#ffffff", fontSize: 13, fontWeight: 700, cursor: deleting ? "default" : "pointer" }}>{deleting ? "Deleting..." : "Confirm delete"}</button>
                 <button onClick={() => { setShowDeleteConfirm(false); setConfirmDelete(""); setDeleteMsg(""); }} style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.gray, fontSize: 13, cursor: "pointer" }}>Cancel</button>
               </div>
             </div>
@@ -412,7 +412,7 @@ function PlayerProfileModal({ player, onClose }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
         <RoleBadge role={player.role} />
         {player.is_marquee && <span style={{ background: C.bgCard + "20", color: C.gray, border: `1px solid ${C.gold}40`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>MARQUEE</span>}
-        <span style={{ fontSize: 13, color: "#888888", fontWeight: 700, marginLeft: "auto" }}>${player.price}</span>
+        <span style={{ fontSize: 13, color: "#4CB817", fontWeight: 700, marginLeft: "auto" }}>${player.price}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 18 }}>
         {[["Pts", totalPts, C.crimson], ["Runs", totalRuns, C.indigo], ["Wickets", totalWkts, C.gold], ["Catches", totalCatches, C.success]].map(([l, v, a]) => (
@@ -816,7 +816,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
                       </div>
                       <div style={{ textAlign: "right", marginRight: 4 }}>
-                        <div style={{ fontSize: 13, color: "#888888", fontWeight: 600 }}>${p.price}</div>
+                        <div style={{ fontSize: 13, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
                         <div style={{ fontSize: 11, color: C.gray }}>{p.pts} pts</div>
                       </div>
                       {inSquad
@@ -1033,7 +1033,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", borderRadius: 6, marginBottom: 3, background: C.bg, border: `1px solid ${p.is_marquee ? "#e5e5e5" : "transparent"}` }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, fontWeight: 600, color: C.black, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>${p.price}</div>
+                            <div style={{ fontSize: 10, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
                           </div>
                           <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 12, lineHeight: 1, flexShrink: 0, marginLeft: 4 }}>x</button>
                         </div>
@@ -1043,7 +1043,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                 })}
               </div>
               <div style={{ padding: "8px 10px", borderTop: `1px solid ${C.border}` }}>
-                <button onClick={() => setShowPicker(false)} style={{ width: "100%", padding: "9px", borderRadius: 8, background: C.black, color: C.black, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Done</button>
+                <button onClick={() => setShowPicker(false)} style={{ width: "100%", padding: "9px", borderRadius: 8, background: "#4B0082", color: "#ffffff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Done</button>
               </div>
             </div>
             <div style={{ flex: 1, background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -1071,7 +1071,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
                       </div>
                       <div style={{ textAlign: "right", marginRight: 3, flexShrink: 0 }}>
-                        <div style={{ fontSize: 12, color: "#888888", fontWeight: 600 }}>${p.price}</div>
+                        <div style={{ fontSize: 12, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
                         <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>{p.pts} pts</div>
                       </div>
                       {inSquad ? (
@@ -1154,7 +1154,7 @@ function PlayersPage({ players }) {
               </div>
               <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
             </div>
-            <span style={{ fontSize: 13, color: "#888888", fontWeight: 600 }}>${p.price}</span>
+            <span style={{ fontSize: 13, color: "#4CB817", fontWeight: 700 }}>${p.price}</span>
             <span style={{ fontSize: 13, color: C.blackD, fontWeight: 500 }}>{p.pts}</span>
             <span style={{ fontSize: 12, color: "#888888" }}>{p.mp}</span>
           </div>
@@ -1248,7 +1248,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
                               {p.is_vice_captain && <span style={{ background: C.blackLt + "40", color: C.blackLt, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>VC</span>}
                             </div>
                           </div>
-                          <span style={{ fontSize: 11, color: C.gray, fontWeight: 600, flexShrink: 0 }}>${p.price}</span>
+                          <span style={{ fontSize: 11, color: "#4CB817", fontWeight: 700, flexShrink: 0 }}>${p.price}</span>
                         </div>
                       ))}
                     </div>
