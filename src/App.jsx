@@ -712,87 +712,84 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   // ─── MOBILE LAYOUT ───────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ paddingTop: 52, paddingBottom: 60, minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" }}>
+      <div style={{ paddingTop: 52, paddingBottom: 0, height: "100vh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-        {/* Score strip */}
-        <div style={{ background: `linear-gradient(135deg,${C.crimson}22,${C.bgCard})`, borderBottom: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 0 }}>
+        {/* Score strip — compact single row */}
+        <div style={{ background: "#4B0082", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: "#555555", letterSpacing: 1 }}>GW{activeGw}</div>
+            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase" }}>GW{activeGw} SCORE</div>
             {gwPoints !== null ? (
-              <div onClick={loadGwBreakdown} style={{ fontSize: 28, fontWeight: 700, color: C.black, lineHeight: 1, cursor: "pointer" }}>{gwPoints} <span style={{ fontSize: 11, color: C.black }}>pts — tap</span></div>
+              <div onClick={loadGwBreakdown} style={{ fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1, cursor: "pointer", letterSpacing: "-1px" }}>{gwPoints} <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>pts ▸</span></div>
             ) : (
-              <div style={{ fontSize: 14, color: C.gray, marginTop: 2 }}>No points yet</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>No points yet</div>
             )}
           </div>
           {gwPoints !== null && (
             <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: C.gray }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 9, color: C.gray }}>AVG</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: C.success }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 9, color: C.gray }}>HIGH</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>Avg</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>High</div></div>
             </div>
           )}
-          <div style={{ marginLeft: 12 }}>
-            {!transfersOpen && hasSquad
-              ? <div style={{ background: C.bgCard + "15", border: `1px solid ${C.gold}40`, borderRadius: 6, padding: "4px 8px", fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600 }}>Closed</div>
-              : transfersOpen
-                ? <div style={{ display: "flex", alignItems: "center", gap: 4, background: C.success + "15", border: `1px solid ${C.success}40`, borderRadius: 6, padding: "4px 8px" }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", animation: "pulse 1.5s infinite" }} /><span style={{ fontSize: 10, color: C.success, fontWeight: 600 }}>Open</span></div>
-                : null}
+          <div>
+            {transfersOpen
+              ? <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "4px 8px" }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", animation: "pulse 1.5s infinite" }} /><span style={{ fontSize: 9, color: "#4ade80", fontWeight: 700 }}>OPEN</span></div>
+              : hasSquad ? <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "4px 8px", fontSize: 9, color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>CLOSED</div> : null}
           </div>
         </div>
 
-        {/* Pitch */}
-        <div style={{ background: "#4CB817", flex: 1, padding: "10px 10px 6px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
-          <div style={{ position: "absolute", inset: 6, border: "1px solid #3DBF7A10", borderRadius: 8, pointerEvents: "none" }} />
-          <div style={{ fontSize: 8, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 6, textTransform: "uppercase" }}>TAP PLAYER TO SET C / VC</div>
+        {/* Pitch — flex: 1 fills remaining space */}
+        <div style={{ background: "#4CB817", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
+          <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>TAP TO SET C / VC</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ textAlign: "center", color: C.gray, fontSize: 13 }}>Add players to see your pitch</div>
+              <div style={{ textAlign: "center", color: "rgba(0,0,0,0.4)", fontSize: 13 }}>Add players to see your pitch</div>
             </div>
           ) : (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-evenly", gap: 6 }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-evenly", gap: 4 }}>
               {pitchGroups.WK.length > 0 && (
-                <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "0 15%" }}>
+                <div style={{ display: "flex", justifyContent: "center", gap: 5, padding: "0 15%" }}>
                   {pitchGroups.WK.map(p => <PitchCard key={p.id} p={p} />)}
                 </div>
               )}
-              {pitchGroups.BAT.length > 0 && <div style={{ display: "flex", gap: 5 }}>{pitchGroups.BAT.map(p => <PitchCard key={p.id} p={p} />)}</div>}
-              {pitchGroups.AR.length > 0 && <div style={{ display: "flex", gap: 5 }}>{pitchGroups.AR.map(p => <PitchCard key={p.id} p={p} />)}</div>}
-              {pitchGroups.BOWL.length > 0 && <div style={{ display: "flex", gap: 5 }}>{pitchGroups.BOWL.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.BAT.length > 0 && <div style={{ display: "flex", gap: 4 }}>{pitchGroups.BAT.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.AR.length > 0 && <div style={{ display: "flex", gap: 4 }}>{pitchGroups.AR.map(p => <PitchCard key={p.id} p={p} />)}</div>}
+              {pitchGroups.BOWL.length > 0 && <div style={{ display: "flex", gap: 4 }}>{pitchGroups.BOWL.map(p => <PitchCard key={p.id} p={p} />)}</div>}
             </div>
           )}
           {/* Role counters */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 16, paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.1)", flexShrink: 0 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 14, paddingTop: 4, borderTop: "1px solid rgba(0,0,0,0.1)", flexShrink: 0 }}>
             {Object.entries(ROLE_LIMITS).map(([role, limit]) => (
               <div key={role} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#333333" }}>{(pitchGroups[role]?.length || 0)}/{limit}</div>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>{role}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a" }}>{(pitchGroups[role]?.length || 0)}/{limit}</div>
+                <div style={{ fontSize: 7, color: "rgba(0,0,0,0.4)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{role}</div>
               </div>
             ))}
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.black }}>{squad.length}/{SQUAD_SIZE}</div>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Total</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a" }}>{squad.length}/{SQUAD_SIZE}</div>
+              <div style={{ fontSize: 7, color: "rgba(0,0,0,0.4)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Total</div>
             </div>
           </div>
         </div>
 
-        {/* Status bar */}
-        <div style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+        {/* Status bar — compact single row */}
+        <div style={{ background: "#ffffff", borderTop: "1px solid #f0f0f0", borderBottom: "1px solid #f0f0f0", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           {[
-            ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
-            ["Value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
-            ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
+            ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : "#888"],
+            ["Value", `$${squadValue}`, "#111111"],
+            ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : "#888"],
             ["Xfers", activeGw === 1 ? "Free" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : C.success],
-            ["Captain", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", C.crimson],
-            ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", C.gray],
+            ["C", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", "#4B0082"],
+            ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", "#888"],
           ].map(([l, v, a]) => (
             <div key={l} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: a }}>{v}</div>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginTop: 1 }}>{l}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: a }}>{v}</div>
+              <div style={{ fontSize: 8, color: "#aaa", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", marginTop: 1 }}>{l}</div>
             </div>
           ))}
         </div>
 
-        {/* Action buttons */}
-        <div style={{ padding: "10px 16px 12px", background: C.bg, flexShrink: 0 }}>
+        {/* Action buttons — always visible at bottom */}
+        <div style={{ padding: "10px 16px", background: "#ffffff", flexShrink: 0, paddingBottom: "calc(10px + env(safe-area-inset-bottom))" }}>
           {hasSquad && userHasSaved && !(activeGw === 1) && !transfersOpen ? (
             <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Squad saved — window opens when admin allows transfers</div>
           ) : (
