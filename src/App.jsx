@@ -898,8 +898,11 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       {/* Layout F: left panel | right pitch — fills remaining height */}
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 14, flex: 1, paddingTop: 12, paddingBottom: 12, overflow: "hidden" }}>
 
-        {/* LEFT PANEL — stretches full height, children fill proportionally */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%", overflow: "hidden" }}>
+        {/* LEFT PANEL — fixed buttons at bottom, content scrolls */}
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+
+          {/* Scrollable content */}
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 10 }}>
 
           {/* GW Score */}
           <div style={{ background: "#4B0082", padding: "16px 18px", flexShrink: 0 }}>
@@ -919,9 +922,9 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             )}
           </div>
 
-          {/* Squad status — flex: 1 to grow */}
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 18px", flex: 1 }}>
-            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 14 }}>SQUAD STATUS</div>
+          {/* Squad status */}
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>SQUAD STATUS</div>
             {[
               ["Budget remaining", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
               ["Squad value", `$${squadValue}`, "#111111"],
@@ -930,33 +933,32 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : "#111111"],
               ["Transfers", activeGw === 1 ? "Unlimited" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left${transfersUsed > TRANSFERS_PER_GW ? ` (-${(transfersUsed - TRANSFERS_PER_GW) * 10}pts)` : ""}`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
-              <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-                <span style={{ fontSize: 13, color: "#888888" }}>{l}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: a }}>{v}</span>
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: "#888888" }}>{l}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: a }}>{v}</span>
               </div>
             ))}
-            <div style={{ height: 4, background: C.bg, borderRadius: 2, overflow: "hidden", marginTop: 4 }}>
-              <div style={{ height: "100%", width: `${(purchaseCost / BUDGET) * 100}%`, background: remaining < 0 ? C.danger : C.crimson, borderRadius: 2, transition: "width 0.3s" }} />
-            </div>
           </div>
 
-          {/* Captain / VC — flex: 1 to grow */}
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 18px", flex: 1 }}>
-            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 14 }}>LEADERSHIP</div>
-            {[["Captain (2x)", captain, C.crimson], ["Vice Captain (1.5x)", viceCaptain, C.gray]].map(([label, id, accent]) => {
+          {/* Captain / VC */}
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LEADERSHIP</div>
+            {[["Captain (2x)", captain, "#4B0082"], ["Vice Captain (1.5x)", viceCaptain, "#888888"]].map(([label, id, accent]) => {
               const p = squad.find(x => x.id === id);
               return (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <span style={{ fontSize: 13, color: "#888888" }}>{label}</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: p ? accent : C.gray }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: "#888888" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: p ? accent : "#cccccc" }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
                 </div>
               );
             })}
-            {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: C.gray, padding: "7px 10px", background: C.bgCard + "10", borderRadius: 6, marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
+            {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: "#aaaaaa", marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
           </div>
 
-          {/* Buttons — always at bottom */}
-          <div style={{ flexShrink: 0 }}>
+          </div>{/* end scrollable */}
+
+          {/* Buttons — always pinned to bottom */}
+          <div style={{ flexShrink: 0, borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
             {hasSquad && userHasSaved && !(activeGw === 1) && !transfersOpen ? (
               <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Squad saved — window opens when admin allows transfers</div>
             ) : (
