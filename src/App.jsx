@@ -427,7 +427,7 @@ function PlayerProfileModal({ player, onClose }) {
 
 // --- SQUAD PAGE ---
 
-function SquadPage({ players, userId, activeGw }) {
+function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [squad, setSquad] = useState([]);
   const [captain, setCaptain] = useState(null);
   const [viceCaptain, setViceCaptain] = useState(null);
@@ -437,7 +437,6 @@ function SquadPage({ players, userId, activeGw }) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [loadingSquad, setLoadingSquad] = useState(true);
-  const [transfersOpen, setTransfersOpen] = useState(false);
   const [deadline, setDeadline] = useState(null);
   const [squadSavedInDb, setSquadSavedInDb] = useState(false);
   const [gwPoints, setGwPoints] = useState(null);
@@ -483,7 +482,7 @@ function SquadPage({ players, userId, activeGw }) {
           }
         }
       }
-      if (gwRes.data) { setTransfersOpen(gwRes.data.transfers_open); setDeadline(gwRes.data.deadline); }
+      if (gwRes.data) { setDeadline(gwRes.data.deadline); }
       if (myPtsRes.data) setGwPoints(myPtsRes.data.total_pts);
       if (allPtsRes.data && allPtsRes.data.length > 0) {
         const pts = allPtsRes.data.map(r => r.total_pts);
@@ -1133,17 +1132,14 @@ function PlayersPage({ players }) {
 
 // --- VIEW TEAMS PAGE ---
 
-function ViewTeamsPage({ players, activeGw }) {
+function ViewTeamsPage({ players, activeGw, transfersOpen }) {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [transfersOpen, setTransfersOpen] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState(null);
 
   useEffect(() => {
     const load = async () => {
-      const { data: gwData } = await supabase.from("gameweeks").select("transfers_open").eq("number", activeGw).single();
-      if (gwData) setTransfersOpen(gwData.transfers_open);
-      if (!gwData?.transfers_open) {
+      if (!transfersOpen) {
         const { data: profiles } = await supabase.from("profiles").select("id, team_name, username, total_pts");
         const { data: squads } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", activeGw);
         if (profiles && squads) {
@@ -1162,7 +1158,7 @@ function ViewTeamsPage({ players, activeGw }) {
       setLoading(false);
     };
     if (players.length > 0) load();
-  }, [players]);
+  }, [players, transfersOpen]);
 
   if (loading) return <Spinner label="Loading teams..." />;
 
@@ -1565,13 +1561,13 @@ function HowToPlayPage() {
 
 // --- ADMIN PAGE ---
 
-function AdminPage({ players, activeGw, setActiveGw }) {
+function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfersOpen }) {
   const [gw, setGw] = useState(activeGw);
   const [scores, setScores] = useState({});
   const [saving, setSaving] = useState(false); const [calculating, setCalculating] = useState(false);
   const [msg, setMsg] = useState(""); const [msgType, setMsgType] = useState("success");
   const [search, setSearch] = useState(""); const [existingScores, setExistingScores] = useState({});
-  const [transfersOpen, setTransfersOpen] = useState(false); const [togglingWindow, setTogglingWindow] = useState(false);
+  const [togglingWindow, setTogglingWindow] = useState(false);
   const [advancing, setAdvancing] = useState(false); const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
 
   useEffect(() => {
@@ -1581,7 +1577,6 @@ function AdminPage({ players, activeGw, setActiveGw }) {
         supabase.from("gameweeks").select("transfers_open").eq("number", activeGw).single(), // always read window from ACTIVE gw
       ]);
       if (scoreRes.data) { const map = {}; scoreRes.data.forEach(r => { map[r.player_id] = r; }); setExistingScores(map); setScores({}); }
-      if (gwRes.data) setTransfersOpen(gwRes.data.transfers_open);
     };
     load();
   }, [gw, activeGw]);
@@ -1803,6 +1798,7 @@ export default function App() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGw, setActiveGw] = useState(1);
+  const [transfersOpen, setTransfersOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1821,10 +1817,10 @@ export default function App() {
     const [{ data: pd }, { data: prof }, { data: gwData }] = await Promise.all([
       supabase.from("players").select("*").order("price", { ascending: false }),
       supabase.from("profiles").select("*").eq("id", userId).single(),
-      supabase.from("gameweeks").select("number").eq("is_active", true).order("number", { ascending: false }).limit(1).single(),
+      supabase.from("gameweeks").select("number, transfers_open").eq("is_active", true).order("number", { ascending: false }).limit(1).single(),
     ]);
     if (pd) setPlayers(pd);
-    if (gwData) setActiveGw(gwData.number);
+    if (gwData) { setActiveGw(gwData.number); setTransfersOpen(gwData.transfers_open); }
     // If profile is missing, user has been deleted — force sign out immediately
     if (!prof) {
       await supabase.auth.signOut();
@@ -1866,15 +1862,15 @@ export default function App() {
       <style>{globalStyles}</style>
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
       <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
-        {page === "squad" && <SquadPage players={players} userId={session.user.id} activeGw={activeGw} />}
+        {page === "squad" && <SquadPage players={players} userId={session.user.id} activeGw={activeGw} transfersOpen={transfersOpen} />}
         {page === "players" && <PlayersPage players={players} />}
         {page === "leaderboard" && <LeaderboardPage />}
-        {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} />}
+        {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
         {page === "history" && <HistoryPage />}
         {page === "stats" && <StatsPage players={players} />}
         {page === "howtoplay" && <HowToPlayPage />}
         {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
-        {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} activeGw={activeGw} setActiveGw={setActiveGw} />}
+        {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} activeGw={activeGw} setActiveGw={setActiveGw} transfersOpen={transfersOpen} setTransfersOpen={setTransfersOpen} />}
       </div>
     </div>
   );
