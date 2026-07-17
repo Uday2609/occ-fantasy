@@ -658,11 +658,11 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     setSaving(false);
   };
 
+  const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
+
   const pickerList = players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase())));
   const grouped = { BAT: [], BOWL: [], AR: [], WK: [] };
   squad.forEach(p => grouped[p.role].push(p));
-
-  const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
 
   const pitchGroups = { WK: [], BAT: [], AR: [], BOWL: [] };
   squad.forEach(p => { if (pitchGroups[p.role]) pitchGroups[p.role].push(p); });
@@ -1136,7 +1136,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       )}
     </div>
   );
-}
+
 
 // --- PLAYERS PAGE ---
 
