@@ -563,6 +563,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     setSoldGains(0);
     setSaveMsg("Squad reset to last saved state.");
   };
+
+  const removePlayer = (id) => {
     const p = squad.find(x => x.id === id);
     if (p) {
       const gain = p.price - (p.purchase_price ?? p.price); // extra budget from price rise
