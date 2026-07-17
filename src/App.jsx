@@ -576,6 +576,20 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (squad.length !== SQUAD_SIZE) { setSaveMsg(`Need ${SQUAD_SIZE} players. You have ${squad.length}.`); return; }
     if (!captain) { setSaveMsg("Please assign a captain."); return; }
     if (!viceCaptain) { setSaveMsg("Please assign a vice captain."); return; }
+    // Warn about transfer penalty before saving
+    if (activeGw > 1) {
+      const { data: prevSquad } = await supabase.from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", activeGw - 1);
+      if (prevSquad) {
+        const prevIds = new Set(prevSquad.map(r => r.player_id));
+        const transfersIn = squad.filter(p => !prevIds.has(p.id)).length;
+        if (transfersIn > TRANSFERS_PER_GW) {
+          const extra = transfersIn - TRANSFERS_PER_GW;
+          const penalty = extra * 10;
+          const confirmed = window.confirm(`You have made ${transfersIn} transfers this gameweek.\n\n${TRANSFERS_PER_GW} are free — the ${extra} extra transfer${extra > 1 ? "s" : ""} will cost you ${penalty} point${penalty > 1 ? "s" : ""}.\n\nClick OK to confirm and save your squad.`);
+          if (!confirmed) return;
+        }
+      }
+    }
     setSaving(true); setSaveMsg("");
 
     // Count transfers vs previous GW (only enforced from GW2 onwards)
@@ -649,24 +663,24 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     return (
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
         <div
-          style={{ background: C.bg, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `1px solid ${isC ? C.crimson : isVC ? C.gray + "70" : p.is_marquee ? "#dddddd" : C.border}`, cursor: "pointer", transition: "border-color 0.15s" }}
+          style={{ background: C.bg, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `2px solid ${isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.3)" : "transparent"}`, cursor: "pointer", transition: "border-color 0.15s" }}
           onClick={e => { e.stopPropagation(); setCaptainMenu(menuOpen ? null : p.id); }}
         >
           <div style={{ fontSize: 8, color: ROLE_COLORS[p.role], fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.black, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: isC ? C.crimson : isVC ? C.gray : C.gray, marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.5)" : "transparent", marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
         </div>
         {menuOpen && (
-          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 4, zIndex: 50, minWidth: 130, boxShadow: "0 6px 20px #00000070", animation: "fadeUp 0.15s ease" }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 6, padding: 4, zIndex: 50, minWidth: 140, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", animation: "fadeUp 0.15s ease" }} onClick={e => e.stopPropagation()}>
             <button
               onClick={() => { setCaptain(isC ? null : p.id); if (viceCaptain === p.id) setViceCaptain(null); setCaptainMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "8px 10px", background: isC ? "#eeeeee" : "transparent", border: "none", borderRadius: 5, color: isC ? C.crimson : C.white, fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+              style={{ display: "block", width: "100%", padding: "8px 10px", background: isC ? "#eeeeee" : "transparent", border: "none", borderRadius: 5, color: isC ? "#4B0082" : "#111111", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
             >
               {isC ? "✓ " : ""} Captain (2x)
             </button>
             <button
               onClick={() => { setViceCaptain(isVC ? null : p.id); if (captain === p.id) setCaptain(null); setCaptainMenu(null); }}
-              style={{ display: "block", width: "100%", padding: "8px 10px", background: isVC ? C.gray + "20" : "transparent", border: "none", borderRadius: 5, color: isVC ? C.gray : C.white, fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+              style={{ display: "block", width: "100%", padding: "8px 10px", background: isVC ? C.gray + "20" : "transparent", border: "none", borderRadius: 5, color: isVC ? "#4B0082" : "#111111", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
             >
               {isVC ? "✓ " : ""} Vice Captain (1.5x)
             </button>
@@ -807,7 +821,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                       </div>
                       {inSquad
                         ? <button onClick={() => removePlayer(p.id)} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Remove</button>
-                        : <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? "#bbbbbb" : C.border}`, background: addable ? "#f5f5f5" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
+                        : <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "8px 14px", borderRadius: 7, border: `1px solid ${addable ? "#4B0082" : C.border}`, background: addable ? "#4B0082" : "transparent", color: addable ? "#ffffff" : C.gray, cursor: addable ? "pointer" : "default", fontSize: 13, fontWeight: 600 }}>Add</button>
                       }
                     </div>
                   );
@@ -1063,7 +1077,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                       {inSquad ? (
                         <button onClick={() => removePlayer(p.id)} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${C.danger}40`, background: C.danger + "15", color: C.danger, cursor: "pointer", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Remove</button>
                       ) : (
-                        <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${addable ? "#bbbbbb" : C.border}`, background: addable ? "#f5f5f5" : "transparent", color: addable ? C.crimson : C.gray, cursor: addable ? "pointer" : "default", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Add</button>
+                        <button onClick={() => addable && setSquad(s => [...s, { ...p, purchase_price: p.price }])} disabled={!addable} style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${addable ? "#4B0082" : C.border}`, background: addable ? "#4B0082" : "transparent", color: addable ? "#ffffff" : C.gray, cursor: addable ? "pointer" : "default", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>Add</button>
                       )}
                     </div>
                   );
