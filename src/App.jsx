@@ -11,7 +11,7 @@ const C = {
   bgCard: "#fafafa",    // subtle surface
   bgCardHov: "#f0f0f0", // hover state
   // Pitch
-  pitch: "#90EE90",     // light green behind player tiles
+  pitch: "#4CB817",     // light green behind player tiles
   pitchDark: "#0a1a0a", // dark green pitch surround
   // Purple — GW score block only
   purple: "#4B0082",
@@ -711,7 +711,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* Pitch */}
-        <div style={{ background: "#90EE90", flex: 1, padding: "10px 10px 6px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "#4CB817", flex: 1, padding: "10px 10px 6px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 6, border: "1px solid #3DBF7A10", borderRadius: 8, pointerEvents: "none" }} />
           <div style={{ fontSize: 8, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 6, textTransform: "uppercase" }}>TAP PLAYER TO SET C / VC</div>
           {squad.length === 0 ? (
@@ -768,7 +768,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             <div style={{ padding: "12px", background: C.bgCard + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 13, color: "#888888", textAlign: "center" }}>Window closed — opens after Thursday</div>
           ) : (
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "13px", background: C.black, color: C.black, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+ Add / Edit</button>
+              <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "13px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
               <button onClick={saveSquad} disabled={saving} style={{ flex: 1, padding: "13px", background: saving ? C.bgCard : C.success + "CC", color: C.black, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
             </div>
           )}
@@ -873,20 +873,20 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%", overflow: "hidden" }}>
 
           {/* GW Score */}
-          <div style={{ background: `linear-gradient(135deg,${C.crimson}22,${C.bgCard})`, border: `1px solid ${C.crimson}40`, borderRadius: 12, padding: "16px 18px", flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>GW{activeGw} SCORE</div>
+          <div style={{ background: "#4B0082", padding: "16px 18px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>GW{activeGw} SCORE</div>
             {gwPoints !== null ? (
               <>
-                <div onClick={loadGwBreakdown} style={{ fontSize: 42, fontWeight: 700, color: C.black, lineHeight: 1, cursor: "pointer" }}>{gwPoints}</div>
-                <div style={{ fontSize: 10, color: C.black, marginTop: 3, cursor: "pointer" }}>tap for breakdown</div>
-                <div style={{ display: "flex", gap: 12, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: C.gray }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 9, color: C.gray, marginTop: 2 }}>AVG</div></div>
-                  <div style={{ width: 1, background: C.border }} />
-                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: C.success }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 9, color: C.gray, marginTop: 2 }}>HIGH</div></div>
+                <div onClick={loadGwBreakdown} style={{ fontSize: 46, fontWeight: 800, color: "#ffffff", lineHeight: 1, cursor: "pointer", letterSpacing: "-2px" }}>{gwPoints}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4, cursor: "pointer" }}>tap for breakdown →</div>
+                <div style={{ display: "flex", gap: 12, marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.15)" }}>
+                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Avg</div></div>
+                  <div style={{ width: 1, background: "rgba(255,255,255,0.15)" }} />
+                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>High</div></div>
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>No points yet this GW.</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>No points yet this GW.</div>
             )}
           </div>
 
@@ -895,10 +895,10 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 14 }}>SQUAD STATUS</div>
             {[
               ["Budget remaining", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
-              ["Squad value", `$${squadValue}`, valueGain > 0 ? C.success : C.white],
+              ["Squad value", `$${squadValue}`, "#111111"],
               ["Value gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
-              ["Players", `${squad.length} / ${SQUAD_SIZE}`, C.white],
-              ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : C.success],
+              ["Players", `${squad.length} / ${SQUAD_SIZE}`, "#111111"],
+              ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : "#111111"],
               ["Transfers", activeGw === 1 ? "Unlimited" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left${transfersUsed > TRANSFERS_PER_GW ? ` (-${(transfersUsed - TRANSFERS_PER_GW) * 10}pts)` : ""}`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
@@ -932,7 +932,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               <div style={{ padding: "14px", background: C.bgCard + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 13, color: "#888888", textAlign: "center" }}>Window closed — opens after Thursday</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button onClick={() => setShowPicker(true)} style={{ padding: "14px", background: C.black, color: C.black, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+ Add / Edit Players</button>
+                <button onClick={() => setShowPicker(true)} style={{ padding: "14px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
                 <button onClick={saveSquad} disabled={saving} style={{ padding: "14px", background: saving ? C.bgCard : C.success + "CC", color: C.black, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
               </div>
             )}
@@ -941,7 +941,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* RIGHT: PITCH — fills full height, narrower */}
-        <div style={{ background: "#90EE90", border: "none", borderRadius: 0, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "#4CB817", border: "none", borderRadius: 0, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 6, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 4, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 60, height: 100, border: "1px solid rgba(0,0,0,0.05)", borderRadius: 2, pointerEvents: "none" }} />
 
