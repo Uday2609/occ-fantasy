@@ -1136,7 +1136,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       )}
     </div>
   );
-  
+}
 
 // --- PLAYERS PAGE ---
 
