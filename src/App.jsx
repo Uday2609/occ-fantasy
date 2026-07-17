@@ -1730,15 +1730,15 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
 
   const numField = (pid, field, label, w = 60) => (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
-      <input type="number" min="0" value={getVal(pid, field)} onChange={e => setVal(pid, field, parseInt(e.target.value) || 0)} style={{ width: w, background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 5, padding: "5px 7px", fontSize: 12, outline: "none", textAlign: "center" }} />
+      <div style={{ fontSize: 9, color: "#888888", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
+      <input type="number" min="0" value={getVal(pid, field)} onChange={e => setVal(pid, field, parseInt(e.target.value) || 0)} style={{ width: w, background: "#fafafa", border: "1px solid #e5e5e5", color: "#111111", borderRadius: 4, padding: "5px 7px", fontSize: 12, outline: "none", textAlign: "center" }} />
     </div>
   );
 
   const boolField = (pid, field, label) => (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
-      <button onClick={() => setVal(pid, field, !getVal(pid, field))} style={{ width: 38, height: 26, borderRadius: 5, border: `1px solid ${getVal(pid, field) ? C.success : C.border}`, background: getVal(pid, field) ? C.success + "25" : C.bgDeep, color: getVal(pid, field) ? C.success : C.gray, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>{getVal(pid, field) ? "Y" : "N"}</button>
+      <div style={{ fontSize: 9, color: "#888888", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
+      <button onClick={() => setVal(pid, field, !getVal(pid, field))} style={{ width: 38, height: 26, borderRadius: 4, border: `1px solid ${getVal(pid, field) ? C.success : "#e5e5e5"}`, background: getVal(pid, field) ? "#f0fdf4" : "#fafafa", color: getVal(pid, field) ? C.success : "#aaaaaa", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>{getVal(pid, field) ? "Y" : "N"}</button>
     </div>
   );
 
