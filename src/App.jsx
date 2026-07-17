@@ -464,12 +464,13 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [gwPoints, setGwPoints] = useState(null);
   const [gwAvg, setGwAvg] = useState(null);
   const [gwHigh, setGwHigh] = useState(null);
-  // budgetUsed removed — remaining now calculated purely from purchaseCost and valueGain
-  const [soldGains, setSoldGains] = useState(0); // cumulative extra budget from selling risen players
-  const [transfersUsed, setTransfersUsed] = useState(0); // transfers used this GW
+  const [soldGains, setSoldGains] = useState(0);
+  const [transfersUsed, setTransfersUsed] = useState(0);
   const [showGwBreakdown, setShowGwBreakdown] = useState(false);
   const [gwBreakdown, setGwBreakdown] = useState([]);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+  // FIX 3: snapshot of last saved squad so user can reset unsaved changes
+  const [savedSnapshot, setSavedSnapshot] = useState({ squad: [], captain: null, viceCaptain: null });
 
   useEffect(() => {
     const loadAll = async () => {
@@ -492,6 +493,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         const vc = squadRes.data.find(r => r.is_vice_captain);
         if (cap) setCaptain(cap.player_id);
         if (vc) setViceCaptain(vc.player_id);
+        // Save snapshot so user can reset to this state
+        setSavedSnapshot({ squad: saved, captain: cap?.player_id || null, viceCaptain: vc?.player_id || null });
 
         // Calculate how many transfers used this GW (compare vs prev GW squad)
         if (activeGw > 1) {
@@ -552,7 +555,14 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     return true;
   };
 
-  const removePlayer = (id) => {
+  const resetSquad = () => {
+    if (savedSnapshot.squad.length === 0) return;
+    setSquad([...savedSnapshot.squad]);
+    setCaptain(savedSnapshot.captain);
+    setViceCaptain(savedSnapshot.viceCaptain);
+    setSoldGains(0);
+    setSaveMsg("Squad reset to last saved state.");
+  };
     const p = squad.find(x => x.id === id);
     if (p) {
       const gain = p.price - (p.purchase_price ?? p.price); // extra budget from price rise
@@ -629,6 +639,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     } else {
       setSquadSavedInDb(true);
       setTransfersUsed(transfersUsed);
+      setSavedSnapshot({ squad: [...squad], captain, viceCaptain }); // update snapshot to new saved state
       // Store the penalty in fantasy_points so Calculate Points can apply it
       if (activeGw > 1) {
         await supabase.from("fantasy_points").upsert(
@@ -779,14 +790,17 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {/* Action buttons */}
         <div style={{ padding: "10px 16px 12px", background: C.bg, flexShrink: 0 }}>
           {hasSquad && !transfersOpen ? (
-            <div style={{ padding: "12px", background: C.bgCard + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 13, color: "#888888", textAlign: "center" }}>Window closed — opens after Thursday</div>
+            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Window closed — opens after Thursday</div>
           ) : (
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "13px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
-              <button onClick={saveSquad} disabled={saving} style={{ flex: 1, padding: "13px", background: saving ? C.bgCard : C.success + "CC", color: C.black, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+            <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
+                <button onClick={saveSquad} disabled={saving} style={{ flex: 1, padding: "12px", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", border: "none", borderRadius: 3, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+              </div>
+              {savedSnapshot.squad.length > 0 && <button onClick={resetSquad} style={{ width: "100%", padding: "9px", background: "#fff", color: "#888888", border: "1px solid #e5e5e5", borderRadius: 3, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↩ Reset to last saved squad</button>}
             </div>
           )}
-          {saveMsg && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 7, fontSize: 12, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30`, textAlign: "center" }}>{saveMsg}</div>}
+          {saveMsg && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 4, fontSize: 12, background: saveMsg.includes("reset") ? "#f0f0f0" : saveMsg.includes("!") || saveMsg.includes("saved") ? "#f0fdf4" : "#fef2f2", color: saveMsg.includes("reset") ? "#555" : saveMsg.includes("!") || saveMsg.includes("saved") ? C.success : C.danger, textAlign: "center" }}>{saveMsg}</div>}
         </div>
 
         {/* Picker modal (same as desktop) */}
@@ -943,14 +957,15 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           {/* Buttons — always at bottom */}
           <div style={{ flexShrink: 0 }}>
             {hasSquad && !transfersOpen ? (
-              <div style={{ padding: "14px", background: C.bgCard + "10", border: `1px solid ${C.gold}25`, borderRadius: 10, fontSize: 13, color: "#888888", textAlign: "center" }}>Window closed — opens after Thursday</div>
+              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Window closed — opens after Thursday</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button onClick={() => setShowPicker(true)} style={{ padding: "14px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
-                <button onClick={saveSquad} disabled={saving} style={{ padding: "14px", background: saving ? C.bgCard : C.success + "CC", color: C.black, border: "none", borderRadius: 10, cursor: saving ? "default" : "pointer", fontSize: 14, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+                <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
+                <button onClick={saveSquad} disabled={saving} style={{ padding: "12px", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", border: "none", borderRadius: 3, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+                {savedSnapshot.squad.length > 0 && <button onClick={resetSquad} style={{ padding: "9px", background: "#fff", color: "#888888", border: "1px solid #e5e5e5", borderRadius: 3, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↩ Reset to last saved squad</button>}
               </div>
             )}
-            {saveMsg && <div style={{ padding: "8px 12px", borderRadius: 7, fontSize: 12, marginTop: 8, background: saveMsg.includes("!") ? C.success + "15" : C.danger + "15", color: saveMsg.includes("!") ? C.success : C.danger, border: `1px solid ${saveMsg.includes("!") ? C.success : C.danger}30` }}>{saveMsg}</div>}
+            {saveMsg && <div style={{ padding: "8px 12px", borderRadius: 4, fontSize: 12, marginTop: 8, background: saveMsg.includes("reset") ? "#f0f0f0" : saveMsg.includes("!") || saveMsg.includes("saved") ? "#f0fdf4" : "#fef2f2", color: saveMsg.includes("reset") ? "#555" : saveMsg.includes("!") || saveMsg.includes("saved") ? C.success : C.danger }}>{saveMsg}</div>}
           </div>
         </div>
 
@@ -1027,15 +1042,15 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                   const rp = squad.filter(p => p.role === role);
                   if (rp.length === 0) return null;
                   return (
-                    <div key={role} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 8, fontWeight: 700, color: "#333333", letterSpacing: 1.5, marginBottom: 3, paddingLeft: 3 }}>{ROLE_LABELS[role].toUpperCase()}S</div>
-                      {rp.map(p => (
-                        <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", borderRadius: 6, marginBottom: 3, background: C.bg, border: `1px solid ${p.is_marquee ? "#e5e5e5" : "transparent"}` }}>
+                    <div key={role} style={{ marginBottom: 10, border: "1px solid #e5e5e5", borderRadius: 6, overflow: "hidden" }}>
+                      <div style={{ fontSize: 8, fontWeight: 800, color: ROLE_COLORS[role], letterSpacing: 1.5, padding: "5px 8px", background: "#f9f9f9", borderBottom: "1px solid #e5e5e5", textTransform: "uppercase" }}>{ROLE_LABELS[role].toUpperCase()}S · {rp.length}/{ROLE_LIMITS[role]}</div>
+                      {rp.map((p, i) => (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 8px", borderBottom: i < rp.length - 1 ? "1px solid #f0f0f0" : "none", background: "#ffffff" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, fontWeight: 600, color: C.black, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                             <div style={{ fontSize: 10, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
                           </div>
-                          <button onClick={() => removePlayer(p.id)} style={{ background: C.danger + "15", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 12, lineHeight: 1, flexShrink: 0, marginLeft: 4 }}>x</button>
+                          <button onClick={() => removePlayer(p.id)} style={{ background: "#fff0f0", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 12, lineHeight: 1, flexShrink: 0, marginLeft: 4 }}>x</button>
                         </div>
                       ))}
                     </div>
@@ -1121,7 +1136,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       )}
     </div>
   );
-}
+  
 
 // --- PLAYERS PAGE ---
 
@@ -1898,7 +1913,10 @@ export default function App() {
       <style>{globalStyles}</style>
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
       <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
-        {page === "squad" && <SquadPage players={players} userId={session.user.id} activeGw={activeGw} transfersOpen={transfersOpen} />}
+        {/* SquadPage always mounted so state survives tab switches — hidden when not active */}
+        <div style={{ display: page === "squad" ? "block" : "none" }}>
+          <SquadPage players={players} userId={session.user.id} activeGw={activeGw} transfersOpen={transfersOpen} />
+        </div>
         {page === "players" && <PlayersPage players={players} />}
         {page === "leaderboard" && <LeaderboardPage />}
         {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
