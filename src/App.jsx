@@ -935,8 +935,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               ["Transfers", activeGw === 1 ? "Unlimited" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left${transfersUsed > TRANSFERS_PER_GW ? ` (-${(transfersUsed - TRANSFERS_PER_GW) * 10}pts)` : ""}`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#888888" }}>{l}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: a }}>{v}</span>
+                <span style={{ fontSize: 12, color: "#FFC627" }}>{l}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#FFC627" }}>{v}</span>
               </div>
             ))}
           </div>
@@ -948,12 +948,12 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               const p = squad.find(x => x.id === id);
               return (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, color: "#888888" }}>{label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: p ? accent : "#cccccc" }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
+                  <span style={{ fontSize: 12, color: "#FFC627" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#FFC627" }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
                 </div>
               );
             })}
-            {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: "#aaaaaa", marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
+            {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: "#FFC627", opacity: 0.7, marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
           </div>
 
           </div>{/* end scrollable */}
