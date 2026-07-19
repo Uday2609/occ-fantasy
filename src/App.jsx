@@ -100,7 +100,7 @@ function calcPoints(s) {
   pts += (s.catches || 0) * 5; pts += (s.run_outs || 0) * 5; pts += (s.stumpings || 0) * 5;
   pts -= (s.dropped_catches || 0) * 10;
   pts -= (s.no_balls || 0) * 3; pts -= (s.wides || 0);
-  return Math.max(pts, 0);
+  return pts;
 }
 
 // --- SHARED COMPONENTS ---
@@ -1834,7 +1834,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
               </div>
               <div>
                 <div style={{ fontSize: 9, color: C.success, fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>FIELDING</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "catches", "Catches", 68)}{numField(p.id, "run_outs", "Run Outs", 68)}{numField(p.id, "stumpings", "Stmpgs", 68)}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "catches", "Catches", 68)}{numField(p.id, "run_outs", "Run Outs", 68)}{numField(p.id, "stumpings", "Stmpgs", 68)}{numField(p.id, "dropped_catches", "Dropped", 70)}</div>
               </div>
             </div>
           </div>
