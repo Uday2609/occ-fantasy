@@ -924,8 +924,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
 
           {/* Squad status */}
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>SQUAD STATUS</div>
+          <div style={{ background: "#A020F0", border: "none", borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#FFC627", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>SQUAD STATUS</div>
             {[
               ["Budget remaining", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
               ["Squad value", `$${squadValue}`, "#111111"],
@@ -942,8 +942,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
 
           {/* Captain / VC */}
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LEADERSHIP</div>
+          <div style={{ background: "#A020F0", border: "none", borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#FFC627", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LEADERSHIP</div>
             {[["Captain (2x)", captain, "#4B0082"], ["Vice Captain (1.5x)", viceCaptain, "#888888"]].map(([label, id, accent]) => {
               const p = squad.find(x => x.id === id);
               return (
