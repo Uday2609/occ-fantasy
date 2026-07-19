@@ -924,8 +924,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
 
           {/* Squad status */}
-          <div style={{ background: "#A020F0", border: "none", borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: "#FFC627", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>SQUAD STATUS</div>
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>SQUAD STATUS</div>
             {[
               ["Budget remaining", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : C.gray],
               ["Squad value", `$${squadValue}`, "#111111"],
@@ -935,25 +935,25 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               ["Transfers", activeGw === 1 ? "Unlimited" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left${transfersUsed > TRANSFERS_PER_GW ? ` (-${(transfersUsed - TRANSFERS_PER_GW) * 10}pts)` : ""}`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#FFC627" }}>{l}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#FFC627" }}>{v}</span>
+                <span style={{ fontSize: 12, color: "#888888" }}>{l}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: a }}>{v}</span>
               </div>
             ))}
           </div>
 
           {/* Captain / VC */}
-          <div style={{ background: "#A020F0", border: "none", borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: "#FFC627", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LEADERSHIP</div>
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LEADERSHIP</div>
             {[["Captain (2x)", captain, "#4B0082"], ["Vice Captain (1.5x)", viceCaptain, "#888888"]].map(([label, id, accent]) => {
               const p = squad.find(x => x.id === id);
               return (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, color: "#FFC627" }}>{label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#FFC627" }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
+                  <span style={{ fontSize: 12, color: "#888888" }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: p ? accent : "#cccccc" }}>{p ? p.name.split(" ").pop() : "Not set"}</span>
                 </div>
               );
             })}
-            {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: "#FFC627", opacity: 0.7, marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
+            {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: "#aaaaaa", marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
           </div>
 
           </div>{/* end scrollable */}
