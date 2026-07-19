@@ -11,7 +11,7 @@ const C = {
   bgCard: "#fafafa",    // subtle surface
   bgCardHov: "#f0f0f0", // hover state
   // Pitch
-  pitch: "#4CB817",     // light green behind player tiles
+  pitch: "#01796F",     // light green behind player tiles
   pitchDark: "#0a1a0a", // dark green pitch surround
   // Purple — GW score block only
   purple: "#4B0082",
@@ -413,7 +413,7 @@ function PlayerProfileModal({ player, onClose }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
         <RoleBadge role={player.role} />
         {player.is_marquee && <span style={{ background: C.bgCard + "20", color: C.gray, border: `1px solid ${C.gold}40`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>MARQUEE</span>}
-        <span style={{ fontSize: 13, color: "#4CB817", fontWeight: 700, marginLeft: "auto" }}>${player.price}</span>
+        <span style={{ fontSize: 13, color: "#01796F", fontWeight: 700, marginLeft: "auto" }}>${player.price}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 18 }}>
         {[["Pts", totalPts, C.crimson], ["Runs", totalRuns, C.indigo], ["Wickets", totalWkts, C.gold], ["Catches", totalCatches, C.success]].map(([l, v, a]) => (
@@ -739,7 +739,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* Pitch — flex: 1 fills remaining space */}
-        <div style={{ background: "#4CB817", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "#01796F", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>TAP TO SET C / VC</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -832,7 +832,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
                       </div>
                       <div style={{ textAlign: "right", marginRight: 4 }}>
-                        <div style={{ fontSize: 13, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
+                        <div style={{ fontSize: 13, color: "#01796F", fontWeight: 700 }}>${p.price}</div>
                         <div style={{ fontSize: 11, color: C.gray }}>{p.pts} pts</div>
                       </div>
                       {inSquad
@@ -974,7 +974,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* RIGHT: PITCH — fills full height, narrower */}
-        <div style={{ background: "#4CB817", border: "none", borderRadius: 0, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "#01796F", border: "none", borderRadius: 0, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 6, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 4, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 60, height: 100, border: "1px solid rgba(0,0,0,0.05)", borderRadius: 2, pointerEvents: "none" }} />
 
@@ -1052,7 +1052,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 8px", borderBottom: i < rp.length - 1 ? "1px solid #f0f0f0" : "none", background: "#ffffff" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, fontWeight: 600, color: C.black, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                            <div style={{ fontSize: 10, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
+                            <div style={{ fontSize: 10, color: "#01796F", fontWeight: 700 }}>${p.price}</div>
                           </div>
                           <button onClick={() => removePlayer(p.id)} style={{ background: "#fff0f0", color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 12, lineHeight: 1, flexShrink: 0, marginLeft: 4 }}>x</button>
                         </div>
@@ -1090,7 +1090,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
                       </div>
                       <div style={{ textAlign: "right", marginRight: 3, flexShrink: 0 }}>
-                        <div style={{ fontSize: 12, color: "#4CB817", fontWeight: 700 }}>${p.price}</div>
+                        <div style={{ fontSize: 12, color: "#01796F", fontWeight: 700 }}>${p.price}</div>
                         <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>{p.pts} pts</div>
                       </div>
                       {inSquad ? (
@@ -1173,7 +1173,7 @@ function PlayersPage({ players }) {
               </div>
               <div style={{ marginTop: 3 }}><RoleBadge role={p.role} /></div>
             </div>
-            <span style={{ fontSize: 13, color: "#4CB817", fontWeight: 700 }}>${p.price}</span>
+            <span style={{ fontSize: 13, color: "#01796F", fontWeight: 700 }}>${p.price}</span>
             <span style={{ fontSize: 13, color: C.blackD, fontWeight: 500 }}>{p.pts}</span>
             <span style={{ fontSize: 12, color: "#888888" }}>{p.mp}</span>
           </div>
@@ -1267,7 +1267,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
                               {p.is_vice_captain && <span style={{ background: C.blackLt + "40", color: C.blackLt, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>VC</span>}
                             </div>
                           </div>
-                          <span style={{ fontSize: 11, color: "#4CB817", fontWeight: 700, flexShrink: 0 }}>${p.price}</span>
+                          <span style={{ fontSize: 11, color: "#01796F", fontWeight: 700, flexShrink: 0 }}>${p.price}</span>
                         </div>
                       ))}
                     </div>
