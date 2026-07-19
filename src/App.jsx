@@ -1915,20 +1915,23 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <style>{globalStyles}</style>
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
-      <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
-        {/* SquadPage always mounted so state survives tab switches — hidden when not active */}
-        <div style={{ display: page === "squad" ? "block" : "none" }}>
-          <SquadPage players={players} userId={session.user.id} activeGw={activeGw} transfersOpen={transfersOpen} />
-        </div>
-        {page === "players" && <PlayersPage players={players} />}
-        {page === "leaderboard" && <LeaderboardPage />}
-        {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
-        {page === "history" && <HistoryPage />}
-        {page === "stats" && <StatsPage players={players} />}
-        {page === "howtoplay" && <HowToPlayPage />}
-        {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
-        {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} activeGw={activeGw} setActiveGw={setActiveGw} transfersOpen={transfersOpen} setTransfersOpen={setTransfersOpen} />}
+      {/* SquadPage always mounted so state survives tab switches */}
+      <div style={{ display: page === "squad" ? "block" : "none" }}>
+        <SquadPage players={players} userId={session.user.id} activeGw={activeGw} transfersOpen={transfersOpen} />
       </div>
+      {/* All other pages — only rendered when active, no interference from SquadPage */}
+      {page !== "squad" && (
+        <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
+          {page === "players" && <PlayersPage players={players} />}
+          {page === "leaderboard" && <LeaderboardPage />}
+          {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
+          {page === "history" && <HistoryPage />}
+          {page === "stats" && <StatsPage players={players} />}
+          {page === "howtoplay" && <HowToPlayPage />}
+          {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
+          {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} activeGw={activeGw} setActiveGw={setActiveGw} transfersOpen={transfersOpen} setTransfersOpen={setTransfersOpen} />}
+        </div>
+      )}
     </div>
   );
 }
