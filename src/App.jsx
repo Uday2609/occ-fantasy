@@ -265,7 +265,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
     return (
       <>
         {/* Mobile top bar */}
-        <nav style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 16px", height: 52 }}>
+        <nav style={{ background: "#111111", borderBottom: "1px solid #222222", position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 16px", height: 52 }}>
           <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 30, height: 30, objectFit: "contain", marginRight: 8 }} />
           <div style={{ fontWeight: 700, fontSize: 14, color: C.black, flex: 1 }}>OCC Fantasy</div>
           {/* More menu button */}
@@ -286,9 +286,9 @@ function Nav({ page, setPage, user, profile, onLogout }) {
 
         {/* Full-screen slide-down menu */}
         {showMobileMenu && (
-          <div style={{ position: "fixed", top: 52, left: 0, right: 0, background: C.bg, border: `1px solid ${C.border}`, borderTop: "none", zIndex: 99, padding: "8px 0 16px", boxShadow: "0 8px 24px #00000060", animation: "slideDown 0.2s ease" }}>
+          <div style={{ position: "fixed", top: 52, left: 0, right: 0, background: "#111111", border: "1px solid #222222", borderTop: "none", zIndex: 99, padding: "8px 0 16px", boxShadow: "0 8px 24px #00000060", animation: "slideDown 0.2s ease" }}>
             {allTabs.map(t => (
-              <button key={t.id} onClick={() => { setPage(t.id); setShowMobileMenu(false); }} style={{ display: "block", width: "100%", padding: "13px 20px", background: page === t.id ? "#f5f5f5" : "none", border: "none", color: page === t.id ? C.crimson : C.whiteD, cursor: "pointer", fontSize: 14, fontWeight: page === t.id ? 700 : 400, textAlign: "left", borderLeft: page === t.id ? `3px solid ${C.crimson}` : "3px solid transparent" }}>
+              <button key={t.id} onClick={() => { setPage(t.id); setShowMobileMenu(false); }} style={{ display: "block", width: "100%", padding: "13px 20px", background: page === t.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: page === t.id ? "#ffffff" : "#aaaaaa", cursor: "pointer", fontSize: 14, fontWeight: page === t.id ? 700 : 400, textAlign: "left", borderLeft: page === t.id ? "3px solid #ffffff" : "3px solid transparent" }}>
                 {t.label}
               </button>
             ))}
@@ -310,7 +310,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
 
   // Desktop nav
   return (
-    <nav style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
+    <nav style={{ background: "#111111", borderBottom: "1px solid #222222", position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
         <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 32, height: 32, objectFit: "contain" }} />
         <div><div style={{ fontWeight: 700, fontSize: 12, color: C.black, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#555555", letterSpacing: 1 }}>2026-27</div></div>
