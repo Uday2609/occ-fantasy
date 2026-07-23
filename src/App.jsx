@@ -297,11 +297,11 @@ function Nav({ page, setPage, user, profile, onLogout }) {
         )}
 
         {/* Bottom tab bar */}
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#111111", borderTop: "1px solid #222222", display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
           {BOTTOM_TABS.map(t => (
             <button key={t.id} onClick={() => { setPage(t.id); setShowMobileMenu(false); }} style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-              <div style={{ fontSize: 16, color: page === t.id ? "#ffffff" : "#666666" }}>{t.icon}</div>
-              <div style={{ fontSize: 9, fontWeight: 600, color: page === t.id ? "#ffffff" : "#666666", letterSpacing: 0.3 }}>{t.label}</div>
+              <div style={{ fontSize: 16, color: page === t.id ? "#ffffff" : "#555555" }}>{t.icon}</div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: page === t.id ? "#ffffff" : "#555555", letterSpacing: 0.3 }}>{t.label}</div>
             </button>
           ))}
         </div>
@@ -713,7 +713,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   // ─── MOBILE LAYOUT ───────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ paddingTop: 52, paddingBottom: 0, height: "100vh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ paddingTop: 52, paddingBottom: 0, minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" }}>
 
         {/* Score strip — compact single row */}
         <div style={{ background: "#4B0082", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -738,8 +738,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
         </div>
 
-        {/* Pitch — flex: 1 fills remaining space */}
-        <div style={{ background: "#014421", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
+        {/* Pitch */}
+        <div style={{ background: "#014421", minHeight: 340, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>TAP TO SET C / VC</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -789,8 +789,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           ))}
         </div>
 
-        {/* Action buttons — always visible at bottom */}
-        <div style={{ padding: "10px 16px", background: "#ffffff", flexShrink: 0, paddingBottom: "calc(10px + env(safe-area-inset-bottom))" }}>
+        {/* Action buttons */}
+        <div style={{ padding: "12px 16px", background: "#ffffff", borderTop: "1px solid #f0f0f0", paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}>
           {hasSquad && userHasSaved && !(activeGw === 1) && !transfersOpen ? (
             <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Squad saved — window opens when admin allows transfers</div>
           ) : (
