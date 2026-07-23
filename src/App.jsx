@@ -314,7 +314,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
     <nav style={{ background: "#111111", borderBottom: "1px solid #222222", position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
         <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 32, height: 32, objectFit: "contain" }} />
-        <div><div style={{ fontWeight: 700, fontSize: 12, color: C.black, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#777777", letterSpacing: 1 }}>2026-27</div></div>
+        <div><div style={{ fontWeight: 700, fontSize: 12, color: "#ffffff", lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#777777", letterSpacing: 1 }}>2026-27</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", overflowX: "auto", flex: 1 }}>
         {allTabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? "#ffffff" : "#666666", borderBottom: page === t.id ? "2px solid #ffffff" : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
@@ -713,7 +713,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   // ─── MOBILE LAYOUT ───────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ paddingTop: 52, paddingBottom: 0, height: "100vh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ paddingTop: 52, paddingBottom: 0, height: "100dvh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Score strip — compact single row */}
         <div style={{ background: "#4B0082", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
