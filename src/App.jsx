@@ -268,7 +268,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
         {/* Mobile top bar */}
         <nav style={{ background: "#111111", borderBottom: "1px solid #222222", position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 16px", height: 52 }}>
           <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 30, height: 30, objectFit: "contain", marginRight: 8 }} />
-          <div style={{ fontWeight: 700, fontSize: 14, color: C.black, flex: 1 }}>OCC Fantasy</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#ffffff", flex: 1 }}>OCC Fantasy</div>
           {/* More menu button */}
           <button onClick={() => setShowMobileMenu(m => !m)} style={{ background: "none", border: "none", color: C.gray, fontSize: 22, cursor: "pointer", padding: "0 4px", marginRight: 8, lineHeight: 1 }}>&#8801;</button>
           {/* Avatar */}
@@ -314,7 +314,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
     <nav style={{ background: "#111111", borderBottom: "1px solid #222222", position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
         <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 32, height: 32, objectFit: "contain" }} />
-        <div><div style={{ fontWeight: 700, fontSize: 12, color: C.black, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#555555", letterSpacing: 1 }}>2026-27</div></div>
+        <div><div style={{ fontWeight: 700, fontSize: 12, color: C.black, lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#777777", letterSpacing: 1 }}>2026-27</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", overflowX: "auto", flex: 1 }}>
         {allTabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? "#ffffff" : "#666666", borderBottom: page === t.id ? "2px solid #ffffff" : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
@@ -713,7 +713,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   // ─── MOBILE LAYOUT ───────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ paddingTop: 52, paddingBottom: 0, minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" }}>
+      <div style={{ paddingTop: 52, paddingBottom: 0, height: "100vh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Score strip — compact single row */}
         <div style={{ background: "#4B0082", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -739,7 +739,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* Pitch */}
-        <div style={{ background: "#014421", minHeight: 340, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "#014421", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>TAP TO SET C / VC</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -790,7 +790,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* Action buttons */}
-        <div style={{ padding: "12px 16px", background: "#ffffff", borderTop: "1px solid #f0f0f0", paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}>
+        <div style={{ padding: "10px 16px 12px", background: "#ffffff", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
           {hasSquad && userHasSaved && !(activeGw === 1) && !transfersOpen ? (
             <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Squad saved — window opens when admin allows transfers</div>
           ) : (
