@@ -791,8 +791,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
         {/* Action buttons */}
         <div style={{ padding: "10px 16px 12px", background: "#ffffff", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
-          {hasSquad && userHasSaved && !(activeGw === 1) && !transfersOpen ? (
-            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Squad saved — window opens when admin allows transfers</div>
+          {hasSquad && !(activeGw === 1) && !transfersOpen ? (
+            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed — opens after the round</div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
               <div style={{ display: "flex", gap: 8 }}>
@@ -960,8 +960,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
           {/* Buttons — always pinned to bottom */}
           <div style={{ flexShrink: 0, borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
-            {hasSquad && userHasSaved && !(activeGw === 1) && !transfersOpen ? (
-              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Squad saved — window opens when admin allows transfers</div>
+            {hasSquad && !(activeGw === 1) && !transfersOpen ? (
+              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed — opens after the round</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
