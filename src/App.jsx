@@ -314,10 +314,10 @@ function Nav({ page, setPage, user, profile, onLogout }) {
     <nav style={{ background: "#111111", borderBottom: "1px solid #222222", position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", padding: "0 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 24, padding: "12px 0", flexShrink: 0 }}>
         <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC" style={{ width: 32, height: 32, objectFit: "contain" }} />
-        <div><div style={{ fontWeight: 700, fontSize: 12, color: "#ffffff", lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#777777", letterSpacing: 1 }}>2026-27</div></div>
+        <div><div style={{ fontWeight: 700, fontSize: 12, color: "#ffffff", lineHeight: 1.1 }}>OCC Fantasy</div><div style={{ fontSize: 9, color: "#B08D2F", letterSpacing: 1.5, fontWeight: 600 }}>2026-27</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", overflowX: "auto", flex: 1 }}>
-        {allTabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? "#ffffff" : "#666666", borderBottom: page === t.id ? "2px solid #ffffff" : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
+        {allTabs.map(t => <button key={t.id} onClick={() => setPage(t.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "17px 12px", fontSize: 12, fontWeight: 500, color: page === t.id ? "#ffffff" : "#666666", borderBottom: page === t.id ? "2px solid #F0C040" : "2px solid transparent", marginBottom: -1, transition: "color 0.15s", flexShrink: 0 }}>{t.label}</button>)}
       </div>
       <div style={{ position: "relative", flexShrink: 0, paddingLeft: 12 }}>
         <button onClick={() => setShowMenu(m => !m)} style={{ display: "flex", alignItems: "center", gap: 7, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
@@ -716,7 +716,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       <div style={{ paddingTop: 52, paddingBottom: 0, height: "100dvh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Score strip — compact single row */}
-        <div style={{ background: "#4B0082", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase" }}>GW{activeGw} SCORE</div>
             {gwPoints !== null ? (
@@ -739,7 +739,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* Pitch */}
-        <div style={{ background: "#014421", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "repeating-linear-gradient(180deg, #014421 0px, #014421 44px, #025229 44px, #025229 88px)", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>TAP TO SET C / VC</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -796,7 +796,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           ) : (
             <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
+                <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
                 <button onClick={saveSquad} disabled={saving} style={{ flex: 1, padding: "12px", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", border: "none", borderRadius: 3, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
               </div>
               {savedSnapshot.squad.length > 0 && JSON.stringify(squad.map(p=>p.id).sort()) !== JSON.stringify(savedSnapshot.squad.map(p=>p.id).sort()) && <button onClick={resetSquad} style={{ width: "100%", padding: "9px", background: "#fff", color: "#555555", border: "1px solid #e5e5e5", borderRadius: 3, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↩ Reset to last saved squad</button>}
@@ -906,7 +906,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 10 }}>
 
           {/* GW Score */}
-          <div style={{ background: "#4B0082", padding: "16px 18px", flexShrink: 0 }}>
+          <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", padding: "16px 18px", flexShrink: 0, borderRadius: 6 }}>
             <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>GW{activeGw} SCORE</div>
             {gwPoints !== null ? (
               <>
@@ -964,7 +964,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed — opens after the round</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>+ Add / Edit Players</button>
+                <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
                 <button onClick={saveSquad} disabled={saving} style={{ padding: "12px", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", border: "none", borderRadius: 3, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
                 {savedSnapshot.squad.length > 0 && JSON.stringify(squad.map(p=>p.id).sort()) !== JSON.stringify(savedSnapshot.squad.map(p=>p.id).sort()) && <button onClick={resetSquad} style={{ padding: "9px", background: "#fff", color: "#555555", border: "1px solid #e5e5e5", borderRadius: 3, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↩ Reset to last saved squad</button>}
               </div>
@@ -974,7 +974,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
 
         {/* RIGHT: PITCH — fills full height, narrower */}
-        <div style={{ background: "#014421", border: "none", borderRadius: 0, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "repeating-linear-gradient(180deg, #014421 0px, #014421 44px, #025229 44px, #025229 88px)", border: "none", borderRadius: 6, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 6, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 4, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 60, height: 100, border: "1px solid rgba(0,0,0,0.05)", borderRadius: 2, pointerEvents: "none" }} />
 
