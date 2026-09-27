@@ -6,14 +6,14 @@ const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
 
 const C = {
   // Base
-  bg: "#ffffff",        // page background — white
+  bg: "#ffffff",        // page background - white
   bgDeep: "#f5f5f5",    // slightly off-white for alternating rows
   bgCard: "#fafafa",    // subtle surface
   bgCardHov: "#f0f0f0", // hover state
   // Pitch
   pitch: "#014421",     // light green behind player tiles
   pitchDark: "#0a1a0a", // dark green pitch surround
-  // Purple — GW score block only
+  // Purple - GW score block only
   purple: "#4B0082",
   purpleLight: "rgba(255,255,255,0.5)",
   // Text
@@ -47,28 +47,30 @@ const SCORING = [
   { label: "Six (6)", value: "+6 bonus" }, { label: "Half-century (50)", value: "+20 pts" },
   { label: "Century (100)", value: "+35 pts" }, { label: "Duck", value: "-5 pts" },
   { label: "Wicket taken", value: "10 pts" }, { label: "3-wicket haul", value: "+20 pts" },
-  { label: "5-wicket haul", value: "+35 pts" }, { label: "Catch", value: "15 pts" },
-  { label: "Run out", value: "15 pts" }, { label: "No ball bowled", value: "-1 pt" },
-  { label: "Wide bowled", value: "-1 pt" }, { label: "No ball bowled", value: "-3 pts" }, { label: "Captain", value: "2x points" },
+  { label: "5-wicket haul", value: "+35 pts" }, { label: "No ball bowled", value: "-3 pts" },
+  { label: "Wide bowled", value: "-1 pt" }, { label: "Catch", value: "5 pts" },
+  { label: "Run out", value: "5 pts" }, { label: "Stumping", value: "5 pts" },
+  { label: "Dropped catch", value: "-10 pts" }, { label: "Captain", value: "2x points" },
   { label: "Vice Captain", value: "1.5x points" },
 ];
 
 const RULES = [
-  { title: "Squad size", desc: "Select 15 players. All 15 score points every gameweek — no bench." },
+  { title: "Squad size", desc: "Select 15 players. All 15 score points every gameweek. No bench." },
   { title: "Budget", desc: "You have $1,000 credits to build your squad. Spend wisely." },
   { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 4 All-rounders, Max 3 Keepers." },
   { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
-  { title: "Transfers", desc: "GW1 is unlimited — build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. Each additional transfer beyond 4 costs -10 points from your GW score." },
-  { title: "Deadlines", desc: "Transfer deadline is Friday night. Late transfers not accepted." },
-  { title: "Scoring", desc: "Every player in your 15 scores — runs, wickets, catches, run outs all count." },
+  { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. Each additional transfer beyond 4 costs -10 points from your GW score." },
+  { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 3 October). Late transfers are not accepted." },
+  { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
-  { title: "PlayCricket", desc: "Scores pulled from PlayCricket after each round, updated by Sunday." },
+  { title: "PlayCricket", desc: "Scores are entered after each round and updated by Sunday." },
 ];
 
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
+  button,input,select,textarea{font-family:inherit}
   body{font-family:'Inter',system-ui,sans-serif;background:#f5f5f5;color:#111111;min-height:100vh}
   ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#f5f5f5}
   ::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
@@ -224,7 +226,7 @@ function SignupForm() {
     setLoading(true); setError("");
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) { setError(error.message); setLoading(false); return; }
-    if (teamName && data.user) await supabase.from("profiles").update({ team_name: teamName, username: email }).eq("id", data.user.id);
+    if (teamName && data.user) await supabase.from("profiles").update({ team_name: teamName.trim().slice(0, 30), username: email }).eq("id", data.user.id);
     setLoading(false);
   };
   return (
@@ -346,7 +348,7 @@ function AccountPage({ user, profile, onLogout }) {
   const [deleteMsg, setDeleteMsg] = useState(""); const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const saveTeamName = async () => {
     setSaving(true); setSaveMsg("");
-    const { error } = await supabase.from("profiles").update({ team_name: teamName }).eq("id", user.id);
+    const { error } = await supabase.from("profiles").update({ team_name: teamName.trim().slice(0, 30) }).eq("id", user.id);
     setSaveMsg(error ? "Failed to save." : "Team name updated!"); setSaving(false);
   };
   const deleteAccount = async () => {
@@ -356,7 +358,7 @@ function AccountPage({ user, profile, onLogout }) {
     await supabase.from("fantasy_points").delete().eq("user_id", user.id);
     await supabase.from("profiles").delete().eq("id", user.id);
     const { error } = await supabase.rpc("delete_user");
-    if (error) { setDeleteMsg("Could not fully delete — contact admin."); } else { await supabase.auth.signOut(); onLogout(); }
+    if (error) { setDeleteMsg("Could not fully delete. Please contact the admin."); } else { await supabase.auth.signOut(); onLogout(); }
     setDeleting(false);
   };
   return (
@@ -424,7 +426,7 @@ function PlayerProfileModal({ player, onClose }) {
         ))}
       </div>
       {loading ? <Spinner label="Loading stats..." /> : scores.length === 0 ? (
-        <div style={{ textAlign: "center", color: C.gray, padding: "20px 0", fontSize: 13 }}>No gameweek data yet — season hasn't started.</div>
+        <div style={{ textAlign: "center", color: C.gray, padding: "20px 0", fontSize: 13 }}>No gameweek data yet. The season hasn't started.</div>
       ) : (
         <div>
           <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 8 }}>GAMEWEEK BREAKDOWN</div>
@@ -516,6 +518,23 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         setGwAvg(Math.round(pts.reduce((a, b) => a + b, 0) / pts.length));
         setGwHigh(Math.max(...pts));
       }
+      // Autosave: restore any unsaved squad from this browser tab (survives tab switches and page reloads,
+      // cleared when the site is closed, since sessionStorage is per-tab)
+      try {
+        const raw = sessionStorage.getItem(`occ_draft_${userId}_${activeGw}`);
+        if (raw) {
+          const d = JSON.parse(raw);
+          const restored = (d.squad || [])
+            .map(e => { const p = players.find(x => x.id === e.id); return p ? { ...p, purchase_price: e.purchase_price ?? p.price } : null; })
+            .filter(Boolean);
+          if (restored.length > 0) {
+            setSquad(restored);
+            setCaptain(d.captain ?? null);
+            setViceCaptain(d.viceCaptain ?? null);
+            setSoldGains(d.soldGains || 0);
+          }
+        }
+      } catch (e) { /* storage unavailable: ignore */ }
       setLoadingSquad(false);
     };
     if (players.length > 0) loadAll();
@@ -556,6 +575,24 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (p.is_marquee && marqueeCount >= MAX_MARQUEE) return false;
     return true;
   };
+
+  // Autosave draft of unsaved changes
+  useEffect(() => {
+    if (loadingSquad) return;
+    const key = `occ_draft_${userId}_${activeGw}`;
+    const ids = arr => JSON.stringify(arr.map(p => p.id).sort());
+    const dirty = ids(squad) !== ids(savedSnapshot.squad) || captain !== savedSnapshot.captain || viceCaptain !== savedSnapshot.viceCaptain;
+    try {
+      if (dirty && squad.length > 0) {
+        sessionStorage.setItem(key, JSON.stringify({
+          squad: squad.map(p => ({ id: p.id, purchase_price: p.purchase_price ?? p.price })),
+          captain, viceCaptain, soldGains,
+        }));
+      } else {
+        sessionStorage.removeItem(key);
+      }
+    } catch (e) { /* storage unavailable: ignore */ }
+  }, [squad, captain, viceCaptain, soldGains, savedSnapshot, loadingSquad, userId, activeGw]);
 
   const resetSquad = () => {
     if (savedSnapshot.squad.length === 0) return;
@@ -599,7 +636,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         if (transfersIn > TRANSFERS_PER_GW) {
           const extra = transfersIn - TRANSFERS_PER_GW;
           const penalty = extra * 10;
-          const confirmed = window.confirm(`You have made ${transfersIn} transfers this gameweek.\n\n${TRANSFERS_PER_GW} are free — the ${extra} extra transfer${extra > 1 ? "s" : ""} will cost you ${penalty} point${penalty > 1 ? "s" : ""}.\n\nClick OK to confirm and save your squad.`);
+          const confirmed = window.confirm(`You have made ${transfersIn} transfers this gameweek.\n\n${TRANSFERS_PER_GW} are free. The ${extra} extra transfer${extra > 1 ? "s" : ""} will cost you ${penalty} point${penalty > 1 ? "s" : ""}.\n\nClick OK to confirm and save your squad.`);
           if (!confirmed) return;
         }
       }
@@ -645,6 +682,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       setUserHasSaved(true); // close window for this user
       setTransfersUsed(transfersUsed);
       setSavedSnapshot({ squad: [...squad], captain, viceCaptain }); // update snapshot to new saved state
+      try { sessionStorage.removeItem(`occ_draft_${userId}_${activeGw}`); } catch (e) { /* ignore */ }
       // Store the penalty in fantasy_points so Calculate Points can apply it
       if (activeGw > 1) {
         await supabase.from("fantasy_points").upsert(
@@ -653,7 +691,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         );
       }
       if (transferPenalty > 0) {
-        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfers used — ${transfersUsed - TRANSFERS_PER_GW} extra (-${transferPenalty}pts penalty).`);
+        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfers used, ${transfersUsed - TRANSFERS_PER_GW} extra (-${transferPenalty}pts penalty).`);
       } else if (activeGw > 1 && transfersUsed > 0) {
         setSaveMsg(`✓ Squad saved! ${transfersUsed} transfer${transfersUsed > 1 ? "s" : ""} used, ${TRANSFERS_PER_GW - transfersUsed} free remaining.`);
       } else {
@@ -715,7 +753,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     return (
       <div style={{ paddingTop: 52, paddingBottom: 0, height: "100dvh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-        {/* Score strip — compact single row */}
+        {/* Score strip - compact single row */}
         <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase" }}>GW{activeGw} SCORE</div>
@@ -727,8 +765,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
           {gwPoints !== null && (
             <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>Avg</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>High</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwAvg ?? "-"}</div><div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>Avg</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwHigh ?? "-"}</div><div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>High</div></div>
             </div>
           )}
           <div>
@@ -772,15 +810,15 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
         </div>
 
-        {/* Status bar — compact single row */}
+        {/* Status bar - compact single row */}
         <div style={{ background: "#ffffff", borderTop: "1px solid #f0f0f0", borderBottom: "1px solid #f0f0f0", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           {[
             ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : "#888"],
             ["Value", `$${squadValue}`, "#111111"],
             ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : "#888"],
             ["Xfers", activeGw === 1 ? "Free" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left`, activeGw === 1 ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : C.success],
-            ["C", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "—", "#4B0082"],
-            ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "—", "#888"],
+            ["C", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "-", "#4B0082"],
+            ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "-", "#888"],
           ].map(([l, v, a]) => (
             <div key={l} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: a }}>{v}</div>
@@ -792,7 +830,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {/* Action buttons */}
         <div style={{ padding: "10px 16px 12px", background: "#ffffff", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
           {hasSquad && !(activeGw === 1) && !transfersOpen ? (
-            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed — opens after the round</div>
+            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed. It opens after the round.</div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
               <div style={{ display: "flex", gap: 8 }}>
@@ -818,7 +856,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                 <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: C.gray, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>x</button>
               </div>
               <div style={{ padding: "8px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "7px 11px", fontSize: 13, outline: "none", minWidth: 120 }} />
+                <input value={search} onChange={e => setSearch(e.target.value.slice(0, 50))} placeholder="Search..." style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "7px 11px", fontSize: 13, outline: "none", minWidth: 120 }} />
                 {["ALL","BAT","BOWL","AR","WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "6px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? "#eeeeee" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>{r}</button>)}
               </div>
               <div style={{ overflowY: "auto", flex: 1, padding: "6px 12px 80px" }}>
@@ -887,7 +925,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       <div style={{ padding: "14px 0 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 9, color: C.black, letterSpacing: 3, fontWeight: 600, marginBottom: 2 }}>OAKLEIGH CRICKET CLUB</div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.black }}>My Squad — GW{activeGw}</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.black }}>My Squad: GW{activeGw}</h1>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {deadline && <Countdown deadline={deadline} />}
@@ -896,10 +934,10 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
       </div>
 
-      {/* Layout F: left panel | right pitch — fills remaining height */}
+      {/* Layout F: left panel | right pitch - fills remaining height */}
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 14, flex: 1, paddingTop: 12, paddingBottom: 12, overflow: "hidden" }}>
 
-        {/* LEFT PANEL — fixed buttons at bottom, content scrolls */}
+        {/* LEFT PANEL - fixed buttons at bottom, content scrolls */}
         <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
           {/* Scrollable content */}
@@ -913,9 +951,9 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                 <div onClick={loadGwBreakdown} style={{ fontSize: 46, fontWeight: 800, color: "#ffffff", lineHeight: 1, cursor: "pointer", letterSpacing: "-2px" }}>{gwPoints}</div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4, cursor: "pointer" }}>tap for breakdown →</div>
                 <div style={{ display: "flex", gap: 12, marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.15)" }}>
-                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwAvg ?? "—"}</div><div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Avg</div></div>
+                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwAvg ?? "-"}</div><div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Avg</div></div>
                   <div style={{ width: 1, background: "rgba(255,255,255,0.15)" }} />
-                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwHigh ?? "—"}</div><div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>High</div></div>
+                  <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{gwHigh ?? "-"}</div><div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>High</div></div>
                 </div>
               </>
             ) : (
@@ -958,10 +996,10 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
           </div>{/* end scrollable */}
 
-          {/* Buttons — always pinned to bottom */}
+          {/* Buttons - always pinned to bottom */}
           <div style={{ flexShrink: 0, borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
             {hasSquad && !(activeGw === 1) && !transfersOpen ? (
-              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed — opens after the round</div>
+              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed. It opens after the round.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
@@ -973,12 +1011,12 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
         </div>
 
-        {/* RIGHT: PITCH — fills full height, narrower */}
+        {/* RIGHT: PITCH - fills full height, narrower */}
         <div style={{ background: "repeating-linear-gradient(180deg, #014421 0px, #014421 44px, #025229 44px, #025229 88px)", border: "none", borderRadius: 6, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden", height: "100%" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ position: "absolute", inset: 6, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 4, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 60, height: 100, border: "1px solid rgba(0,0,0,0.05)", borderRadius: 2, pointerEvents: "none" }} />
 
-          <div style={{ fontSize: 8, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 10, flexShrink: 0, textTransform: "uppercase" }}>YOUR PITCH — TAP TO SET C / VC</div>
+          <div style={{ fontSize: 8, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 10, flexShrink: 0, textTransform: "uppercase" }}>YOUR PITCH · TAP TO SET C / VC</div>
 
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1071,7 +1109,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                   <span style={{ fontSize: 14, fontWeight: 700, color: C.black }}>Add Players</span>
                   <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: C.gray, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>x</button>
                 </div>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "7px 11px", fontSize: 12, outline: "none", marginBottom: 8 }} />
+                <input value={search} onChange={e => setSearch(e.target.value.slice(0, 50))} placeholder="Search player..." style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "7px 11px", fontSize: 12, outline: "none", marginBottom: 8 }} />
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {["ALL", "BAT", "BOWL", "AR", "WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? "#eeeeee" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 11, fontWeight: 500 }}>{r === "ALL" ? "All" : ROLE_LABELS[r]}</button>)}
                 </div>
@@ -1154,7 +1192,7 @@ function PlayersPage({ players }) {
     <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)", background: "#ffffff", minHeight: "100vh" }}>
       <Header title="Player Database" sub={`${players.length} players · Season 2026-27`} />
       <div style={{ display: "flex", gap: 8, padding: "16px 0 14px", flexWrap: "wrap", alignItems: "center" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 8, padding: "7px 12px", fontSize: 12, outline: "none", minWidth: 180 }} />
+        <input value={search} onChange={e => setSearch(e.target.value.slice(0, 50))} placeholder="Search player..." style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 8, padding: "7px 12px", fontSize: 12, outline: "none", minWidth: 180 }} />
         {["ALL", "BAT", "BOWL", "AR", "WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? "#f5f5f5" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>{r === "ALL" ? "All Roles" : ROLE_LABELS[r]}</button>)}
         <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
           {[["price", "Price"], ["pts", "Points"], ["mp", "Matches"]].map(([k, l]) => <button key={k} onClick={() => setSort(k)} style={{ padding: "6px 11px", borderRadius: 7, border: `1px solid ${sort === k ? C.crimson : C.border}`, background: sort === k ? "#f5f5f5" : "transparent", color: sort === k ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>Sort: {l}</button>)}
@@ -1375,7 +1413,7 @@ function HistoryPage() {
     <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)", background: "#ffffff", minHeight: "100vh" }}>
       <Header title="Gameweek History" sub="All past gameweeks and scores" />
       {loading ? <Spinner label="Loading history..." /> : history.length === 0 ? (
-        <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No gameweeks completed yet — season starts soon!</div>
+        <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No gameweeks completed yet. The season starts soon!</div>
       ) : (
         <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
           {history.map(({ gw, entries, high, avg }) => (
@@ -1472,7 +1510,7 @@ function StatsPage({ players }) {
     load();
   }, [players]);
 
-  const noData = <div style={{ fontSize: 13, color: "#888888" }}>No data yet — check back after gameweek 1.</div>;
+  const noData = <div style={{ fontSize: 13, color: "#888888" }}>No data yet. Check back after gameweek 1.</div>;
 
   const StatBlock = ({ title, accent, children }) => (
     <div style={{ background: C.bg, borderRadius: 12, padding: "20px", border: `1px solid ${accent}30` }}>
@@ -1569,7 +1607,6 @@ function StatsPage({ players }) {
 // --- HOW TO PLAY PAGE ---
 
 function HowToPlayPage() {
-  const [openRule, setOpenRule] = useState(null);
   return (
     <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)", background: "#ffffff", minHeight: "100vh" }}>
       <Header title="How to Play" sub="Everything you need to know about OCC Fantasy" />
@@ -1586,13 +1623,13 @@ function HowToPlayPage() {
           <div style={{ textAlign: "center" }}><div style={{ fontSize: 12, fontWeight: 700, color: C.gray }}>2x</div><div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>Capt.</div></div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10, marginBottom: 20 }}>
           {RULES.map((r, i) => (
-            <div key={i} onClick={() => setOpenRule(openRule === i ? null : i)} style={{ background: C.bg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${openRule === i ? "#bbbbbb" : C.border}`, display: "flex", gap: 10, cursor: "pointer", transition: "border-color 0.15s" }}>
+            <div key={i} style={{ background: C.bg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${C.border}`, display: "flex", gap: 10 }}>
               <div style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0, background: C.black + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.black }}>{i + 1}</div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.black, marginBottom: openRule === i ? 6 : 0 }}>{r.title}</div>
-                {openRule === i && <div style={{ fontSize: 12, color: "#888888", lineHeight: 1.6 }}>{r.desc}</div>}
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.black, marginBottom: 4 }}>{r.title}</div>
+                <div style={{ fontSize: 12, color: "#555555", lineHeight: 1.6 }}>{r.desc}</div>
               </div>
             </div>
           ))}
@@ -1600,7 +1637,7 @@ function HowToPlayPage() {
 
         <div style={{ background: C.bg, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.black, marginBottom: 14 }}>Full Scoring System</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 3 }}>
             {SCORING.map((s, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i % 2 === 0 ? C.bgDeep : "transparent", borderRadius: 5 }}>
                 <span style={{ fontSize: 12, color: "#888888" }}>{s.label}</span>
@@ -1764,7 +1801,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
   const numField = (pid, field, label, w = 60) => (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
       <div style={{ fontSize: 9, color: "#888888", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
-      <input type="number" min="0" value={getVal(pid, field)} onChange={e => setVal(pid, field, parseInt(e.target.value) || 0)} style={{ width: w, background: "#fafafa", border: "1px solid #e5e5e5", color: "#111111", borderRadius: 4, padding: "5px 7px", fontSize: 12, outline: "none", textAlign: "center" }} />
+      <input type="number" min="0" value={getVal(pid, field)} onChange={e => setVal(pid, field, Math.min(500, Math.max(0, parseInt(e.target.value) || 0)))} style={{ width: w, background: "#fafafa", border: "1px solid #e5e5e5", color: "#111111", borderRadius: 4, padding: "5px 7px", fontSize: 12, outline: "none", textAlign: "center" }} />
     </div>
   );
 
@@ -1786,7 +1823,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
           <input type="number" min="1" value={gw} onChange={e => setGw(parseInt(e.target.value) || 1)} style={{ width: 56, background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "6px 9px", fontSize: 13, outline: "none", textAlign: "center" }} />
           <span style={{ fontSize: 11, color: C.gray }}>(active: GW{activeGw})</span>
         </div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search player..." style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "6px 11px", fontSize: 12, outline: "none", minWidth: 170 }} />
+        <input value={search} onChange={e => setSearch(e.target.value.slice(0, 50))} placeholder="Search player..." style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "6px 11px", fontSize: 12, outline: "none", minWidth: 170 }} />
         <button onClick={saveScores} disabled={saving} style={{ padding: "8px 16px", borderRadius: 7, border: "none", background: saving ? C.bgCard : C.gold, color: C.bgDeep, fontWeight: 700, fontSize: 12, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save Scores"}</button>
         <button onClick={calculatePoints} disabled={calculating} style={{ padding: "8px 16px", borderRadius: 7, border: "none", background: calculating ? C.bgCard : C.success, color: C.black, fontWeight: 700, fontSize: 12, cursor: calculating ? "default" : "pointer" }}>{calculating ? "Calculating..." : "Calculate Points"}</button>
         <button onClick={toggleTransferWindow} disabled={togglingWindow} style={{ padding: "8px 16px", borderRadius: 7, border: `1px solid ${transfersOpen ? C.success : C.crimson}50`, background: transfersOpen ? C.success + "15" : "#f5f5f5", color: transfersOpen ? C.success : C.crimson, fontWeight: 700, fontSize: 12, cursor: togglingWindow ? "default" : "pointer" }}>{togglingWindow ? "Updating..." : transfersOpen ? "Close Transfer Window" : "Open Transfer Window"}</button>
@@ -1876,7 +1913,7 @@ export default function App() {
     ]);
     if (pd) setPlayers(pd);
     if (gwData) { setActiveGw(gwData.number); setTransfersOpen(gwData.transfers_open); }
-    // If profile is missing, user has been deleted — force sign out immediately
+    // If profile is missing, user has been deleted - force sign out immediately
     if (!prof) {
       await supabase.auth.signOut();
       setSession(null); setProfile(null); setPlayers([]); setLoading(false);
@@ -1920,7 +1957,7 @@ export default function App() {
       <div style={{ display: page === "squad" ? "block" : "none" }}>
         <SquadPage players={players} userId={session.user.id} activeGw={activeGw} transfersOpen={transfersOpen} />
       </div>
-      {/* All other pages — only rendered when active, no interference from SquadPage */}
+      {/* All other pages - only rendered when active, no interference from SquadPage */}
       {page !== "squad" && (
         <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
           {page === "players" && <PlayersPage players={players} />}
