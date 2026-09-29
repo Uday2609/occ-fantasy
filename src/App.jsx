@@ -42,6 +42,26 @@ const SQUAD_SIZE = 15;
 const TRANSFERS_PER_GW = 4;
 const MAX_MARQUEE = 3;
 
+// Transfer deadlines, 9 AM Melbourne time on match day.
+// +10:00 = AEST (before daylight saving), +11:00 = AEDT (from 4 Oct 2026).
+const GW_DEADLINES = {
+  1: "2026-10-03T09:00:00+10:00",
+  2: "2026-10-17T09:00:00+11:00",
+  3: "2026-10-31T09:00:00+11:00",
+  4: "2026-11-07T09:00:00+11:00",
+  5: "2026-11-14T09:00:00+11:00",
+  6: "2026-11-21T09:00:00+11:00",
+  7: "2026-12-05T09:00:00+11:00",
+  8: "2026-12-19T09:00:00+11:00",
+  9: "2027-01-09T09:00:00+11:00",
+  10: "2027-01-16T09:00:00+11:00",
+  11: "2027-01-23T09:00:00+11:00",
+  12: "2027-01-30T09:00:00+11:00",
+  13: "2027-02-06T09:00:00+11:00",
+  14: "2027-02-13T09:00:00+11:00",
+  15: "2027-02-27T09:00:00+11:00",
+};
+
 const SCORING = [
   { label: "Run scored", value: "1 pt" }, { label: "Boundary (4)", value: "+4 bonus" },
   { label: "Six (6)", value: "+6 bonus" }, { label: "Half-century (50)", value: "+20 pts" },
@@ -1699,8 +1719,8 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
       await supabase.from("gameweeks").update({ is_active: false, transfers_open: false }).eq("number", activeGw);
 
       // 2. Create the new gameweek row
-      const nextDeadline = new Date();
-      nextDeadline.setDate(nextDeadline.getDate() + 7); // default deadline 7 days from now
+      // Use the scheduled deadline; fall back to 7 days from now if this GW isn't in the schedule
+      const nextDeadline = GW_DEADLINES[nextGw] ? new Date(GW_DEADLINES[nextGw]) : new Date(Date.now() + 7 * 86400000);
       const { error: gwError } = await supabase.from("gameweeks").insert({
         number: nextGw,
         deadline: nextDeadline.toISOString(),
@@ -1736,7 +1756,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
       setScores({});
       setExistingScores({});
       setTransfersOpen(false);
-      setMsg(`GW${nextGw} is now active! ${currentSquads?.length || 0} squad rows copied. Set the deadline in Supabase and open the transfer window when ready.`);
+      setMsg(`GW${nextGw} is now active! ${currentSquads?.length || 0} squad rows copied. Deadline set to ${nextDeadline.toLocaleString("en-AU", { timeZone: "Australia/Melbourne", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}. Open the transfer window when ready.`);
       setMsgType("success");
     } catch (e) {
       setMsg(e.message);
