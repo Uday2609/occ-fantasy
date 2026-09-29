@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabase";
+import { Analytics } from "@vercel/analytics/react";
 
 const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
 // activeGw is now loaded dynamically from the gameweeks table (is_active = true)
@@ -2040,7 +2041,7 @@ export default function App() {
   };
 
   if (loading) return <div style={{ minHeight: "100vh", background: C.bg }}><style>{globalStyles}</style><Spinner label="Loading OCC Fantasy..." /></div>;
-  if (!session) return <><style>{globalStyles}</style><AuthPage /></>;
+  if (!session) return <><style>{globalStyles}</style><AuthPage /><Analytics /></>;
 
   const isMobile = window.innerWidth < 768;
   const pageNeedsMobilePad = isMobile && page !== "squad";
@@ -2048,6 +2049,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <style>{globalStyles}</style>
+      <Analytics />
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
       {/* SquadPage always mounted so state survives tab switches */}
       <div style={{ display: page === "squad" ? "block" : "none" }}>
