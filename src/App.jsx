@@ -44,9 +44,9 @@ const TRANSFERS_PER_GW = 4;
 const MAX_MARQUEE = 3;
 
 // Transfer deadlines, 9 AM Melbourne time on match day.
-// +10:00 = AEST (before daylight saving), +11:00 = AEDT (from 4 Oct 2026).
+// All +11:00 = AEDT (daylight saving runs 4 Oct 2026 to 4 Apr 2027).
 const GW_DEADLINES = {
-  1: "2026-10-03T09:00:00+10:00",
+  1: "2026-10-10T09:00:00+11:00",
   2: "2026-10-17T09:00:00+11:00",
   3: "2026-10-31T09:00:00+11:00",
   4: "2026-11-07T09:00:00+11:00",
@@ -82,7 +82,7 @@ const RULES = [
   { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
   { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. Each additional transfer beyond 4 costs -10 points from your GW score." },
-  { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 3 October). Late transfers are not accepted." },
+  { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 10 October). Late transfers are not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
   { title: "PlayCricket", desc: "Scores are entered after each round and updated by Sunday." },
