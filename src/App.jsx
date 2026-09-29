@@ -136,6 +136,18 @@ function Spinner({ label = "Loading..." }) {
   );
 }
 
+// Display name from first/last name (emails are never shown to other users)
+const fullName = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(" ");
+
+// Returns an error message if the team name is taken by someone else, otherwise null
+async function teamNameTaken(name, myId) {
+  const clean = name.trim();
+  const escaped = clean.replace(/[\\%_]/g, m => "\\" + m);
+  const { data } = await supabase.from("profiles").select("id").ilike("team_name", escaped);
+  return (data || []).some(r => r.id !== myId) ? "That team name is already in use. Please choose another." : null;
+}
+const isDuplicateError = (err) => err && (err.code === "23505" || /duplicate|unique/i.test(err.message || ""));
+
 function Inp({ label, type = "text", value, onChange, placeholder }) {
   return (
     <div style={{ marginBottom: 14 }}>
@@ -238,21 +250,32 @@ function LoginForm() {
 function SignupForm() {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState(""); const [teamName, setTeamName] = useState("");
+  const [firstName, setFirstName] = useState(""); const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
   const handle = async () => {
-    if (!email || !password || !confirm) { setError("Please fill in all fields."); return; }
+    const fn = firstName.trim().slice(0, 30), ln = lastName.trim().slice(0, 30), tn = teamName.trim().slice(0, 30);
+    if (!fn || !ln || !tn || !email || !password || !confirm) { setError("Please fill in all fields."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (password !== confirm) { setError("Passwords don't match."); return; }
     setLoading(true); setError("");
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const taken = await teamNameTaken(tn, null);
+    if (taken) { setError(taken); setLoading(false); return; }
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { first_name: fn, last_name: ln, team_name: tn } } });
     if (error) { setError(error.message); setLoading(false); return; }
-    if (teamName && data.user) await supabase.from("profiles").update({ team_name: teamName.trim().slice(0, 30), username: email }).eq("id", data.user.id);
+    if (data.user) {
+      const { error: pErr } = await supabase.from("profiles").update({ team_name: tn, first_name: fn, last_name: ln }).eq("id", data.user.id);
+      if (isDuplicateError(pErr)) setError("That team name was just taken. Change it in Account settings once you're in.");
+    }
     setLoading(false);
   };
   return (
     <div style={{ background: C.bg, borderRadius: 14, padding: 22, border: `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}><Inp label="First name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" /></div>
+        <div style={{ flex: 1 }}><Inp label="Last name" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last name" /></div>
+      </div>
+      <Inp label="Team name" value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Howes XI" />
       <Inp label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-      <Inp label="Team name (optional)" value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Howes XI" />
       <Inp label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" />
       <Inp label="Confirm password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat your password" />
       {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 3 }}>{error}</div>}
@@ -363,13 +386,18 @@ function Nav({ page, setPage, user, profile, onLogout }) {
 
 function AccountPage({ user, profile, onLogout }) {
   const [teamName, setTeamName] = useState(profile?.team_name || "");
+  const [firstName, setFirstName] = useState(profile?.first_name || ""); const [lastName, setLastName] = useState(profile?.last_name || "");
   const [saving, setSaving] = useState(false); const [saveMsg, setSaveMsg] = useState("");
   const [deleting, setDeleting] = useState(false); const [confirmDelete, setConfirmDelete] = useState("");
   const [deleteMsg, setDeleteMsg] = useState(""); const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const saveTeamName = async () => {
+    const tn = teamName.trim().slice(0, 30), fn = firstName.trim().slice(0, 30), ln = lastName.trim().slice(0, 30);
+    if (!tn || !fn || !ln) { setSaveMsg("Please fill in your first name, last name, and team name."); return; }
     setSaving(true); setSaveMsg("");
-    const { error } = await supabase.from("profiles").update({ team_name: teamName.trim().slice(0, 30) }).eq("id", user.id);
-    setSaveMsg(error ? "Failed to save." : "Team name updated!"); setSaving(false);
+    const taken = await teamNameTaken(tn, user.id);
+    if (taken) { setSaveMsg(taken); setSaving(false); return; }
+    const { error } = await supabase.from("profiles").update({ team_name: tn, first_name: fn, last_name: ln }).eq("id", user.id);
+    setSaveMsg(isDuplicateError(error) ? "That team name is already in use. Please choose another." : error ? "Failed to save." : "Details updated!"); setSaving(false);
   };
   const deleteAccount = async () => {
     if (confirmDelete !== user.email) { setDeleteMsg("Email doesn't match."); return; }
@@ -386,8 +414,12 @@ function AccountPage({ user, profile, onLogout }) {
       <Header title="Account Settings" sub={user.email} />
       <div style={{ padding: "24px 0", display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ background: C.bg, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: C.black, marginBottom: 14 }}>Team name</div>
-          <Inp value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Howes XI" />
+          <div style={{ fontSize: 14, fontWeight: 600, color: C.black, marginBottom: 14 }}>Your details</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><Inp label="First name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" /></div>
+            <div style={{ flex: 1 }}><Inp label="Last name" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last name" /></div>
+          </div>
+          <Inp label="Team name" value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Howes XI" />
           <button onClick={saveTeamName} disabled={saving} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving..." : "Save"}</button>
           {saveMsg && <div style={{ marginTop: 10, fontSize: 12, color: saveMsg.includes("!") ? C.success : C.danger }}>{saveMsg}</div>}
         </div>
@@ -1261,7 +1293,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
   useEffect(() => {
     const load = async () => {
       if (!transfersOpen) {
-        const { data: profiles } = await supabase.from("profiles").select("id, team_name, username, total_pts");
+        const { data: profiles } = await supabase.from("profiles").select("id, team_name, first_name, last_name, total_pts");
         const { data: squads } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain").eq("gameweek_id", activeGw);
         if (profiles && squads) {
           const result = profiles.map(prof => {
@@ -1303,7 +1335,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
                   <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.black + "20", border: `1px solid ${C.crimson}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: C.black, flexShrink: 0 }}>{(team.team_name || team.username || "?")[0].toUpperCase()}</div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.black, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{team.team_name || "Unnamed Team"}</div>
-                    <div style={{ fontSize: 11, color: C.gray }}>{team.username}</div>
+                    <div style={{ fontSize: 11, color: C.gray }}>{fullName(team)}</div>
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
@@ -1316,7 +1348,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
           {selectedTeam && (
             <div style={{ background: C.bg, borderRadius: 14, padding: "20px", border: `1px solid ${C.crimson}30`, animation: "slideIn 0.2s ease" }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: C.black, marginBottom: 4 }}>{selectedTeam.team_name || "Unnamed Team"}</div>
-              <div style={{ fontSize: 12, color: "#888888", marginBottom: 16 }}>{selectedTeam.username} · {selectedTeam.squad.length} players</div>
+              <div style={{ fontSize: 12, color: "#888888", marginBottom: 16 }}>{fullName(selectedTeam) ? `${fullName(selectedTeam)} · ` : ""}{selectedTeam.squad.length} players</div>
               {Object.entries({ BAT: [], BOWL: [], AR: [], WK: [] }).map(([role]) => {
                 const rp = selectedTeam.squad.filter(p => p.role === role);
                 if (rp.length === 0) return null;
@@ -1358,7 +1390,7 @@ function LeaderboardPage() {
   useEffect(() => {
     const fetch = async () => {
       const [{ data }, { data: fp }] = await Promise.all([
-        supabase.from("profiles").select("id, team_name, username, total_pts").order("total_pts", { ascending: false }),
+        supabase.from("profiles").select("id, team_name, first_name, last_name, total_pts").order("total_pts", { ascending: false }),
         supabase.from("fantasy_points").select("user_id, gameweek_id, total_pts"),
       ]);
       // Latest gameweek that has calculated points
@@ -1383,7 +1415,7 @@ function LeaderboardPage() {
               {entries.slice(0, 3).map((p, i) => (
                 <div key={p.id} style={{ background: i === 0 ? "#f5f5f5" : C.bgCard, borderRadius: 12, padding: "18px 14px", border: `1px solid ${i === 0 ? "#cccccc" : C.border}`, textAlign: "center" }}>
                   <div style={{ fontSize: 16, marginBottom: 5 }}>{["1st", "2nd", "3rd"][i]}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.black }}>{p.team_name || p.username}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.black }}>{p.team_name || fullName(p) || "Unnamed Team"}</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: "#111111", marginTop: 4, letterSpacing: "-0.5px" }}>{p.total_pts}</div>
                   <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>total points</div>
                 </div>
@@ -1403,7 +1435,7 @@ function LeaderboardPage() {
                   <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.black + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.black, flexShrink: 0 }}>{(p.team_name || p.username || "?")[0].toUpperCase()}</div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: C.black }}>{p.team_name || "Unnamed Team"}</div>
-                    <div style={{ fontSize: 11, color: C.gray }}>{p.username}</div>
+                    <div style={{ fontSize: 11, color: C.gray }}>{fullName(p)}</div>
                   </div>
                 </div>
                 <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: "#666666" }}>{latestGw ? (gwPts[p.id] ?? 0) : "-"}</div>
@@ -1429,7 +1461,7 @@ function HistoryPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("fantasy_points").select("gameweek_id, total_pts, user_id, profiles(team_name, username)").order("gameweek_id", { ascending: false });
+      const { data } = await supabase.from("fantasy_points").select("gameweek_id, total_pts, user_id, profiles(team_name, first_name, last_name)").order("gameweek_id", { ascending: false });
       if (data) {
         const grouped = {};
         data.forEach(row => {
@@ -1477,7 +1509,7 @@ function HistoryPage() {
                       <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? C.crimson : C.gray }}>{i + 1}</span>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 500, color: C.black }}>{e.profiles?.team_name || "Unnamed Team"}</div>
-                        <div style={{ fontSize: 11, color: C.gray }}>{e.profiles?.username}</div>
+                        <div style={{ fontSize: 11, color: C.gray }}>{fullName(e.profiles)}</div>
                       </div>
                       <span style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD }}>{e.total_pts}</span>
                     </div>
@@ -1504,7 +1536,7 @@ function StatsPage({ players }) {
       try {
         const [scoresRes, ptsRes, squadRes] = await Promise.all([
           supabase.from("gameweek_scores").select("player_id, runs, wickets, calculated_pts, gameweek_id"),
-          supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, username)"),
+          supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, first_name, last_name)"),
           supabase.from("squads").select("player_id"),
         ]);
 
@@ -1607,7 +1639,7 @@ function StatsPage({ players }) {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: C.black }}>{stats.bestFantasy.profile?.team_name || "Unnamed Team"}</div>
-                  <div style={{ fontSize: 12, color: "#888888", marginTop: 2 }}>{stats.bestFantasy.profile?.username}</div>
+                  <div style={{ fontSize: 12, color: "#888888", marginTop: 2 }}>{fullName(stats.bestFantasy.profile)}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 28, fontWeight: 700, color: C.black }}>{stats.bestFantasy.pts}</div>
