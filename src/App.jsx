@@ -486,6 +486,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [squadSavedInDb, setSquadSavedInDb] = useState(false);
   const [userHasSaved, setUserHasSaved] = useState(false); // closes window for this user after saving
   const [gwPoints, setGwPoints] = useState(null);
+  const [scoreGw, setScoreGw] = useState(activeGw); // gameweek whose score is shown
   const [gwAvg, setGwAvg] = useState(null);
   const [gwHigh, setGwHigh] = useState(null);
   const [soldGains, setSoldGains] = useState(0);
@@ -498,11 +499,18 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
   useEffect(() => {
     const loadAll = async () => {
+      // Show the current GW's score once it has been scored, otherwise the previous GW's
+      let sGw = activeGw;
+      if (activeGw > 1) {
+        const { count } = await supabase.from("gameweek_scores").select("*", { count: "exact", head: true }).eq("gameweek_id", activeGw);
+        if (!count) sGw = activeGw - 1;
+      }
+      setScoreGw(sGw);
       const [squadRes, gwRes, myPtsRes, allPtsRes] = await Promise.all([
         supabase.from("squads").select("player_id, is_captain, is_vice_captain, purchase_price").eq("user_id", userId).eq("gameweek_id", activeGw),
         supabase.from("gameweeks").select("deadline, transfers_open").eq("number", activeGw).single(),
-        supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", activeGw).single(),
-        supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", activeGw),
+        supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", sGw).maybeSingle(),
+        supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", sGw),
       ]);
       if (squadRes.data && squadRes.data.length > 0) {
         // Merge purchase_price from squads table into each player object
@@ -562,8 +570,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
   const loadGwBreakdown = async () => {
     setLoadingBreakdown(true);
-    const { data: squadData } = await supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", activeGw);
-    const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", activeGw);
+    const { data: squadData } = await supabase.from("squads").select("player_id, is_captain, is_vice_captain").eq("user_id", userId).eq("gameweek_id", scoreGw);
+    const { data: scoreData } = await supabase.from("gameweek_scores").select("player_id, calculated_pts").eq("gameweek_id", scoreGw);
     if (squadData && scoreData) {
       const scoreMap = {};
       scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
@@ -776,7 +784,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {/* Score strip - compact single row */}
         <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase" }}>GW{activeGw} SCORE</div>
+            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase" }}>GW{scoreGw} SCORE</div>
             {gwPoints !== null ? (
               <div onClick={loadGwBreakdown} style={{ fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1, cursor: "pointer", letterSpacing: "-1px" }}>{gwPoints} <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>pts ▸</span></div>
             ) : (
@@ -965,7 +973,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
           {/* GW Score */}
           <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", padding: "16px 18px", flexShrink: 0, borderRadius: 6 }}>
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>GW{activeGw} SCORE</div>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>GW{scoreGw} SCORE</div>
             {gwPoints !== null ? (
               <>
                 <div onClick={loadGwBreakdown} style={{ fontSize: 46, fontWeight: 800, color: "#ffffff", lineHeight: 1, cursor: "pointer", letterSpacing: "-2px" }}>{gwPoints}</div>
@@ -1282,7 +1290,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
         <div style={{ padding: "60px 0", textAlign: "center" }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: C.bgCard + "20", border: `1px solid ${C.gold}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>&#128274;</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: C.black, marginBottom: 8 }}>Transfer window is open</div>
-          <div style={{ fontSize: 13, color: "#888888" }}>Other managers' squads are hidden until the window closes on Friday night.</div>
+          <div style={{ fontSize: 13, color: "#888888" }}>Other managers' squads are hidden until the transfer deadline on Saturday morning.</div>
         </div>
       ) : teams.length === 0 ? (
         <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No squads submitted yet.</div>
@@ -1344,10 +1352,21 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
 
 function LeaderboardPage() {
   const [entries, setEntries] = useState([]);
+  const [latestGw, setLatestGw] = useState(null);
+  const [gwPts, setGwPts] = useState({});
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase.from("profiles").select("id, team_name, username, total_pts").order("total_pts", { ascending: false });
+      const [{ data }, { data: fp }] = await Promise.all([
+        supabase.from("profiles").select("id, team_name, username, total_pts").order("total_pts", { ascending: false }),
+        supabase.from("fantasy_points").select("user_id, gameweek_id, total_pts"),
+      ]);
+      // Latest gameweek that has calculated points
+      const scored = (fp || []).filter(r => r.total_pts > 0);
+      const lastGw = scored.length ? Math.max(...scored.map(r => r.gameweek_id)) : null;
+      const gwMap = {};
+      (fp || []).filter(r => r.gameweek_id === lastGw).forEach(r => { gwMap[r.user_id] = r.total_pts; });
+      setLatestGw(lastGw); setGwPts(gwMap);
       if (data) setEntries(data);
       setLoading(false);
     };
@@ -1372,13 +1391,13 @@ function LeaderboardPage() {
             </div>
           )}
           <div style={{ background: C.bg, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600, letterSpacing: 0.8 }}>
-              <span>#</span><span>MANAGER</span><span style={{ textAlign: "right" }}>TOTAL PTS</span>
+            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 70px 80px", padding: "9px 16px", borderBottom: `1px solid ${C.border}`, fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600, letterSpacing: 0.8 }}>
+              <span>#</span><span>MANAGER</span><span style={{ textAlign: "right" }}>{latestGw ? `GW${latestGw}` : "GW"}</span><span style={{ textAlign: "right" }}>TOTAL</span>
             </div>
             {entries.length === 0 ? (
               <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No members yet.</div>
             ) : entries.map((p, i) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 90px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 70px 80px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: hasPoints && i < 3 ? "#111111" : "#cccccc" }}>{i + 1}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.black + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.black, flexShrink: 0 }}>{(p.team_name || p.username || "?")[0].toUpperCase()}</div>
@@ -1387,6 +1406,7 @@ function LeaderboardPage() {
                     <div style={{ fontSize: 11, color: C.gray }}>{p.username}</div>
                   </div>
                 </div>
+                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: "#666666" }}>{latestGw ? (gwPts[p.id] ?? 0) : "-"}</div>
                 <div style={{ textAlign: "right" }}>
                   <span style={{ fontSize: 14, fontWeight: 800, color: "#111111" }}>{p.total_pts}</span>
                 </div>
