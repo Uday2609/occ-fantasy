@@ -1454,70 +1454,94 @@ function LeaderboardPage() {
 
 // --- GAMEWEEK HISTORY PAGE ---
 
-function HistoryPage() {
+function HistoryPage({ userId }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedGw, setExpandedGw] = useState(null);
+  const [selGw, setSelGw] = useState(null);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("fantasy_points").select("gameweek_id, total_pts, user_id, profiles(team_name, first_name, last_name)").order("gameweek_id", { ascending: false });
+      const { data } = await supabase.from("fantasy_points").select("gameweek_id, total_pts, transfer_penalty, user_id, profiles(team_name, first_name, last_name)");
       if (data) {
         const grouped = {};
-        data.forEach(row => {
-          if (!grouped[row.gameweek_id]) grouped[row.gameweek_id] = [];
-          grouped[row.gameweek_id].push(row);
-        });
-        const gws = Object.entries(grouped).map(([gw, entries]) => {
-          const pts = entries.map(e => e.total_pts);
-          return { gw: parseInt(gw), entries: entries.sort((a, b) => b.total_pts - a.total_pts), high: Math.max(...pts), avg: Math.round(pts.reduce((a, b) => a + b, 0) / pts.length) };
-        });
+        data.forEach(row => { (grouped[row.gameweek_id] = grouped[row.gameweek_id] || []).push(row); });
+        const gws = Object.entries(grouped)
+          .map(([gw, entries]) => {
+            const sorted = entries.sort((a, b) => b.total_pts - a.total_pts);
+            // Shared rank on equal scores (1, 2, 2, 4)
+            sorted.forEach((e, i) => { e.rank = i > 0 && e.total_pts === sorted[i - 1].total_pts ? sorted[i - 1].rank : i + 1; });
+            const pts = sorted.map(e => e.total_pts);
+            return { gw: parseInt(gw), entries: sorted, high: Math.max(...pts), avg: Math.round(pts.reduce((a, b) => a + b, 0) / pts.length) };
+          })
+          .filter(g => g.high > 0) // only gameweeks that have been scored
+          .sort((a, b) => a.gw - b.gw);
         setHistory(gws);
+        if (gws.length) setSelGw(gws[gws.length - 1].gw);
       }
       setLoading(false);
     };
     load();
   }, []);
 
-  const toggleGw = (gw) => setExpandedGw(expandedGw === gw ? null : gw);
+  const idx = history.findIndex(h => h.gw === selGw);
+  const cur = history[idx];
+  const myEntry = cur?.entries.find(e => e.user_id === userId);
+  const label = { fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 3 };
+  const arrow = (enabled) => ({ width: 36, height: 36, borderRadius: 6, border: "1px solid #e5e5e5", background: "#ffffff", color: enabled ? "#111111" : "#cccccc", cursor: enabled ? "pointer" : "default", fontSize: 16, fontWeight: 700, flexShrink: 0 });
 
   return (
     <div style={{ padding: "calc(env(safe-area-inset-top) + 0px) clamp(16px,4vw,32px) clamp(60px,8vw,48px)", background: "#ffffff", minHeight: "100vh" }}>
-      <Header title="Gameweek History" sub="All past gameweeks and scores" />
+      <Header title="Gameweek History" sub="How every manager ranked, gameweek by gameweek" />
       {loading ? <Spinner label="Loading history..." /> : history.length === 0 ? (
         <div style={{ textAlign: "center", color: C.gray, padding: "60px 0", fontSize: 13 }}>No gameweeks completed yet. The season starts soon!</div>
       ) : (
-        <div style={{ paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-          {history.map(({ gw, entries, high, avg }) => (
-            <div key={gw} style={{ background: C.bg, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
-              <div onClick={() => toggleGw(gw)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 16 }} onMouseEnter={e => e.currentTarget.style.background = C.bgCardHov} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div style={{ background: C.black + "20", border: `1px solid ${C.crimson}40`, borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, color: C.black, flexShrink: 0 }}>GW{gw}</div>
-                <div style={{ flex: 1, display: "flex", gap: 24 }}>
-                  <div><div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 2 }}>HIGH SCORE</div><div style={{ fontSize: 16, fontWeight: 700, color: C.success }}>{high}</div></div>
-                  <div><div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 2 }}>AVERAGE</div><div style={{ fontSize: 16, fontWeight: 700, color: C.gray }}>{avg}</div></div>
-                  <div><div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 2 }}>MANAGERS</div><div style={{ fontSize: 16, fontWeight: 700, color: C.black }}>{entries.length}</div></div>
-                </div>
-                <div style={{ fontSize: 14, color: C.gray }}>{expandedGw === gw ? "^" : "v"}</div>
-              </div>
-              {expandedGw === gw && (
-                <div style={{ borderTop: `1px solid ${C.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 80px", padding: "8px 18px", fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${C.border}` }}>
-                    <span>#</span><span>TEAM</span><span style={{ textAlign: "right" }}>PTS</span>
-                  </div>
-                  {entries.map((e, i) => (
-                    <div key={e.user_id} style={{ display: "grid", gridTemplateColumns: "36px 1fr 80px", padding: "10px 18px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center" }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? C.crimson : C.gray }}>{i + 1}</span>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: C.black }}>{e.profiles?.team_name || "Unnamed Team"}</div>
-                        <div style={{ fontSize: 11, color: C.gray }}>{fullName(e.profiles)}</div>
-                      </div>
-                      <span style={{ textAlign: "right", fontSize: 14, fontWeight: 700, color: i === 0 ? C.crimson : C.whiteD }}>{e.total_pts}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+        <div style={{ paddingTop: 20 }}>
+          {/* Gameweek switcher */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <button aria-label="Previous gameweek" onClick={() => idx > 0 && setSelGw(history[idx - 1].gw)} style={arrow(idx > 0)}>‹</button>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#111111", letterSpacing: "-0.5px" }}>Gameweek {selGw}</div>
             </div>
-          ))}
+            <button aria-label="Next gameweek" onClick={() => idx < history.length - 1 && setSelGw(history[idx + 1].gw)} style={arrow(idx < history.length - 1)}>›</button>
+          </div>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 16 }}>
+            {history.map(h => (
+              <button key={h.gw} onClick={() => setSelGw(h.gw)} style={{ padding: "6px 12px", borderRadius: 4, border: `1px solid ${h.gw === selGw ? "#111111" : "#e5e5e5"}`, background: h.gw === selGw ? "#111111" : "#ffffff", color: h.gw === selGw ? "#ffffff" : "#555555", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>GW{h.gw}</button>
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginBottom: 16 }}>
+            {myEntry && (
+              <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", borderRadius: 6, padding: "12px 14px" }}>
+                <div style={{ ...label, color: "rgba(255,255,255,0.5)" }}>Your score</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#ffffff" }}>{myEntry.total_pts} <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>#{myEntry.rank} of {cur.entries.length}</span></div>
+              </div>
+            )}
+            <div style={{ border: "1px solid #e5e5e5", borderRadius: 6, padding: "12px 14px" }}><div style={label}>High score</div><div style={{ fontSize: 20, fontWeight: 800, color: C.success }}>{cur.high}</div></div>
+            <div style={{ border: "1px solid #e5e5e5", borderRadius: 6, padding: "12px 14px" }}><div style={label}>Average</div><div style={{ fontSize: 20, fontWeight: 800, color: "#111111" }}>{cur.avg}</div></div>
+            <div style={{ border: "1px solid #e5e5e5", borderRadius: 6, padding: "12px 14px" }}><div style={label}>Managers</div><div style={{ fontSize: 20, fontWeight: 800, color: "#111111" }}>{cur.entries.length}</div></div>
+          </div>
+
+          {/* Ranking */}
+          <div style={{ border: "1px solid #e5e5e5", borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 70px", padding: "8px 16px", background: "#fafafa", borderBottom: "1px solid #eeeeee", fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>
+              <span>#</span><span>Manager</span><span style={{ textAlign: "right" }}>GW{selGw} pts</span>
+            </div>
+            {cur.entries.map((e, i) => {
+              const mine = e.user_id === userId;
+              return (
+                <div key={e.user_id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 70px", padding: "10px 16px", borderBottom: i < cur.entries.length - 1 ? "1px solid #f3f3f3" : "none", alignItems: "center", background: mine ? "#f6f0fb" : e.rank === 1 ? "#FFFDF5" : "#ffffff" }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: e.rank <= 3 ? "#111111" : "#bbbbbb" }}>{e.rank}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.profiles?.team_name || "Unnamed Team"}{mine && <span style={{ fontSize: 10, color: "#4B0082", fontWeight: 700, marginLeft: 6 }}>YOU</span>}</div>
+                    <div style={{ fontSize: 11, color: "#888888" }}>{fullName(e.profiles)}{e.transfer_penalty > 0 && <span style={{ color: C.danger, marginLeft: fullName(e.profiles) ? 6 : 0 }}>-{e.transfer_penalty} transfer hit</span>}</div>
+                  </div>
+                  <span style={{ textAlign: "right", fontSize: 15, fontWeight: 800, color: "#111111" }}>{e.total_pts}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -2035,7 +2059,7 @@ export default function App() {
           {page === "players" && <PlayersPage players={players} />}
           {page === "leaderboard" && <LeaderboardPage />}
           {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
-          {page === "history" && <HistoryPage />}
+          {page === "history" && <HistoryPage userId={session.user.id} />}
           {page === "stats" && <StatsPage players={players} />}
           {page === "howtoplay" && <HowToPlayPage />}
           {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
