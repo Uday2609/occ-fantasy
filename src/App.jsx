@@ -88,10 +88,10 @@ const RULES = [
 ];
 
 const globalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  @import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
   button,input,select,textarea{font-family:inherit}
-  body{font-family:'Inter',system-ui,sans-serif;background:#f5f5f5;color:#111111;min-height:100vh}
+  body{font-family:'Cabinet Grotesk',system-ui,sans-serif;background:#f5f5f5;color:#111111;min-height:100vh}
   ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#f5f5f5}
   ::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
   input::placeholder{color:#aaa}
