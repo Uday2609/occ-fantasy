@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "./supabase";
+import { Analytics } from "@vercel/analytics/react";
 
 const ADMIN_ID = "b41a3909-5ebe-430a-bce2-9bcefeed1af2";
 // activeGw is now loaded dynamically from the gameweeks table (is_active = true)
@@ -220,9 +221,44 @@ function AuthPage() {
           <div style={{ fontSize: 11, color: C.gray, marginTop: 3, letterSpacing: 1 }}>OAKLEIGH CRICKET CLUB · 2026-27</div>
         </div>
         <div style={{ display: "flex", background: C.bg, borderRadius: 10, padding: 3, marginBottom: 20, border: `1px solid ${C.border}` }}>
-          {["login", "signup"].map(m => <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mode === m ? C.bg : "transparent", color: mode === m ? C.white : C.gray, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>{m === "login" ? "Log in" : "Sign up"}</button>)}
+          {["login", "signup"].map(m => <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mode === m ? "#111111" : "transparent", color: mode === m ? "#ffffff" : C.gray, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>{m === "login" ? "Log in" : "Sign up"}</button>)}
         </div>
         {mode === "login" ? <LoginForm /> : <SignupForm />}
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordPage({ onDone }) {
+  const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const [done, setDone] = useState(false);
+  const save = async () => {
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password !== confirm) { setError("Passwords don't match."); return; }
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) { setError(/session|expired|invalid/i.test(error.message) ? "This reset link has expired. Please request a new one from the log in page." : error.message); return; }
+    setDone(true);
+  };
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#f5f5f5" }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <img src="https://static.wixstatic.com/media/c2192c_93a1860777ae4b16af6c3dc7bc071184~mv2.png" alt="OCC Logo" style={{ width: 60, height: 60, margin: "0 auto 10px", display: "block", objectFit: "contain" }} />
+          <div style={{ fontWeight: 700, fontSize: 20, color: C.black }}>Choose a new password</div>
+        </div>
+        <div style={{ background: "#ffffff", borderRadius: 14, padding: 22, border: `1px solid ${C.border}` }}>
+          {done ? (<>
+            <div style={{ fontSize: 13, color: C.success, fontWeight: 600, marginBottom: 14 }}>Password updated. You're all set.</div>
+            <button onClick={() => { window.history.replaceState(null, "", window.location.pathname); onDone(); }} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: "#111111", color: "#ffffff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Continue to OCC Fantasy</button>
+          </>) : (<>
+            <Inp label="New password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" />
+            <Inp label="Confirm new password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat your new password" />
+            {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 3 }}>{error}</div>}
+            <button onClick={save} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? "#eeeeee" : "#111111", color: loading ? "#888" : "#ffffff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Saving..." : "Save new password"}</button>
+          </>)}
+        </div>
       </div>
     </div>
   );
@@ -231,6 +267,29 @@ function AuthPage() {
 function LoginForm() {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+  const [forgot, setForgot] = useState(false); const [sent, setSent] = useState(false);
+  const sendReset = async () => {
+    if (!email) { setError("Enter the email you signed up with."); return; }
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+    setLoading(false);
+    if (error && /rate|limit|seconds/i.test(error.message)) { setError("Too many reset requests right now. Please try again in a little while."); return; }
+    setSent(true); // same message whether or not the email exists, so accounts can't be probed
+  };
+  if (forgot) return (
+    <div style={{ background: C.bg, borderRadius: 14, padding: 22, border: `1px solid ${C.border}` }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.black, marginBottom: 6 }}>Reset your password</div>
+      {sent ? (
+        <div style={{ fontSize: 13, color: "#555555", lineHeight: 1.6, marginBottom: 14 }}>If an account exists for <b>{email.trim()}</b>, a reset link is on its way. Check your inbox (and spam folder), then tap the link to choose a new password.</div>
+      ) : (<>
+        <div style={{ fontSize: 12, color: "#888888", lineHeight: 1.6, marginBottom: 14 }}>Enter your email and we'll send you a link to set a new password.</div>
+        <Inp label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+        {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 3 }}>{error}</div>}
+        <button onClick={sendReset} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? "#eeeeee" : "#111111", color: loading ? "#888" : "#ffffff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Sending..." : "Send reset link"}</button>
+      </>)}
+      <button onClick={() => { setForgot(false); setSent(false); setError(""); }} style={{ display: "block", margin: "14px auto 0", background: "none", border: "none", color: "#4B0082", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Back to log in</button>
+    </div>
+  );
   const handle = async () => {
     if (!email || !password) { setError("Please fill in all fields."); return; }
     setLoading(true); setError("");
@@ -241,6 +300,7 @@ function LoginForm() {
     <div style={{ background: C.bg, borderRadius: 14, padding: 22, border: `1px solid ${C.border}` }}>
       <Inp label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
       <Inp label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" />
+      <button onClick={() => { setForgot(true); setError(""); }} style={{ display: "block", marginLeft: "auto", marginTop: -6, marginBottom: 12, background: "none", border: "none", color: "#4B0082", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>Forgot password?</button>
       {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 3 }}>{error}</div>}
       <button onClick={handle} disabled={loading} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: loading ? "#eeeeee" : "#111111", color: loading ? "#888" : "#ffffff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Logging in..." : "Log in"}</button>
     </div>
@@ -1987,6 +2047,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeGw, setActiveGw] = useState(1);
   const [transfersOpen, setTransfersOpen] = useState(false);
+  // True when the user arrived from a password-reset email link
+  const [recovery, setRecovery] = useState(() => typeof window !== "undefined" && /type=recovery/.test(window.location.hash));
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1994,6 +2056,7 @@ export default function App() {
       if (session) loadAppData(session.user.id); else setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === "PASSWORD_RECOVERY") setRecovery(true);
       setSession(session);
       if (session) loadAppData(session.user.id); else { setPlayers([]); setProfile(null); setLoading(false); }
     });
@@ -2039,8 +2102,9 @@ export default function App() {
     setSession(null); setProfile(null); setPlayers([]);
   };
 
+  if (recovery) return <><style>{globalStyles}</style><ResetPasswordPage onDone={() => setRecovery(false)} /></>;
   if (loading) return <div style={{ minHeight: "100vh", background: C.bg }}><style>{globalStyles}</style><Spinner label="Loading OCC Fantasy..." /></div>;
-  if (!session) return <><style>{globalStyles}</style><AuthPage /></>;
+  if (!session) return <><style>{globalStyles}</style><AuthPage /><Analytics /></>;
 
   const isMobile = window.innerWidth < 768;
   const pageNeedsMobilePad = isMobile && page !== "squad";
@@ -2048,6 +2112,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
       <style>{globalStyles}</style>
+      <Analytics />
       <Nav page={page} setPage={setPage} user={session.user} profile={profile} onLogout={handleLogout} />
       {/* SquadPage always mounted so state survives tab switches */}
       <div style={{ display: page === "squad" ? "block" : "none" }}>
