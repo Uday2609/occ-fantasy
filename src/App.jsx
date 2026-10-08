@@ -149,6 +149,17 @@ async function teamNameTaken(name, myId) {
 }
 const isDuplicateError = (err) => err && (err.code === "23505" || /duplicate|unique/i.test(err.message || ""));
 
+// This week's fixture for a player (from fixtures + player_selections). f undefined => not selected
+function FixtureLine({ f, hasFixtures, compact }) {
+  if (!hasFixtures) return null;
+  if (!f) return <div style={{ fontSize: compact ? 8 : 11, color: "#b45309", fontWeight: 600, marginTop: compact ? 1 : 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Not selected</div>;
+  const ha = f.home ? "H" : "A";
+  const text = compact
+    ? `${f.team.replace(" XI", "")} v ${f.opponent} (${ha})`
+    : `${f.team} vs ${f.opponent} · ${f.venue ? f.venue + " " : ""}(${f.home ? "Home" : "Away"})`;
+  return <div title={`${f.team} vs ${f.opponent}, ${f.home ? "Home" : "Away"}${f.venue ? ", " + f.venue : ""}`} style={{ fontSize: compact ? 8 : 11, color: compact ? "#555555" : "#4B0082", fontWeight: 600, marginTop: compact ? 1 : 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{text}</div>;
+}
+
 function Inp({ label, type = "text", value, onChange, placeholder }) {
   return (
     <div style={{ marginBottom: 14 }}>
@@ -575,6 +586,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [saveMsg, setSaveMsg] = useState("");
   const [loadingSquad, setLoadingSquad] = useState(true);
   const [deadline, setDeadline] = useState(null);
+  const [fixtureMap, setFixtureMap] = useState({}); // player_id -> fixture for the active GW
+  const [playingOnly, setPlayingOnly] = useState(false);
   const [squadSavedInDb, setSquadSavedInDb] = useState(false);
   const [userHasSaved, setUserHasSaved] = useState(false); // closes window for this user after saving
   const [gwPoints, setGwPoints] = useState(null);
@@ -632,6 +645,18 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         }
       }
       if (gwRes.data) { setDeadline(gwRes.data.deadline); }
+      // This gameweek's fixtures and team selections (tables may not exist yet: ignore errors)
+      try {
+        const [{ data: fx }, { data: sel }] = await Promise.all([
+          supabase.from("fixtures").select("id, team, opponent, home, venue").eq("gameweek_id", activeGw),
+          supabase.from("player_selections").select("player_id, fixture_id").eq("gameweek_id", activeGw),
+        ]);
+        if (fx && sel) {
+          const byId = {}; fx.forEach(f => { byId[f.id] = f; });
+          const m = {}; sel.forEach(r => { if (byId[r.fixture_id]) m[r.player_id] = byId[r.fixture_id]; });
+          setFixtureMap(m);
+        }
+      } catch (e) { /* fixtures not set up */ }
       if (myPtsRes.data) setGwPoints(myPtsRes.data.total_pts);
       if (allPtsRes.data && allPtsRes.data.length > 0) {
         const pts = allPtsRes.data.map(r => r.total_pts);
@@ -686,6 +711,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const roleCounts = squad.reduce((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
   const marqueeCount = squad.filter(p => p.is_marquee).length;
   const hasSquad = squadSavedInDb;
+  const hasFixtures = Object.keys(fixtureMap).length > 0;
+  const deadlinePassed = !!deadline && new Date(deadline).getTime() <= Date.now();
 
   const canAdd = (p) => {
     if (squad.find(x => x.id === p.id)) return false;
@@ -744,6 +771,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   };
 
   const saveSquad = async () => {
+    if (deadline && new Date(deadline).getTime() <= Date.now()) { setSaveMsg("The deadline has passed. Squads are locked for this gameweek."); return; }
     if (squad.length !== SQUAD_SIZE) { setSaveMsg(`Need ${SQUAD_SIZE} players. You have ${squad.length}.`); return; }
     if (!captain) { setSaveMsg("Please assign a captain."); return; }
     if (!viceCaptain) { setSaveMsg("Please assign a vice captain."); return; }
@@ -823,7 +851,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
   const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
 
-  const pickerList = players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase())));
+  const pickerList = players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase())) && (!playingOnly || !hasFixtures || fixtureMap[p.id]));
   const grouped = { BAT: [], BOWL: [], AR: [], WK: [] };
   squad.forEach(p => grouped[p.role].push(p));
 
@@ -842,6 +870,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         >
           <div style={{ fontSize: 8, color: ROLE_COLORS[p.role], fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.black, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+          <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} compact />
           <div style={{ fontSize: 9, fontWeight: 700, color: isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.5)" : "transparent", marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
         </div>
         {menuOpen && (
@@ -949,8 +978,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
         {/* Action buttons */}
         <div style={{ padding: "10px 16px 12px", background: "#ffffff", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
-          {hasSquad && !(activeGw === 1) && !transfersOpen ? (
-            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed. It opens after the round.</div>
+          {deadlinePassed || (hasSquad && !(activeGw === 1) && !transfersOpen) ? (
+            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>{deadlinePassed ? "Deadline passed. Squads are locked for this gameweek." : "Transfer window closed. It opens after the round."}</div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
               <div style={{ display: "flex", gap: 8 }}>
@@ -978,6 +1007,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               <div style={{ padding: "8px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <input value={search} onChange={e => setSearch(e.target.value.slice(0, 50))} placeholder="Search..." style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "7px 11px", fontSize: 13, outline: "none", minWidth: 120 }} />
                 {["ALL","BAT","BOWL","AR","WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "6px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? "#eeeeee" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 500 }}>{r}</button>)}
+                {hasFixtures && <button onClick={() => setPlayingOnly(v => !v)} style={{ padding: "6px 10px", borderRadius: 5, border: `1px solid ${playingOnly ? "#4B0082" : C.border}`, background: playingOnly ? "#4B0082" : "transparent", color: playingOnly ? "#ffffff" : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Playing this week</button>}
               </div>
               <div style={{ overflowY: "auto", flex: 1, padding: "6px 12px 80px" }}>
                 {pickerList.map(p => {
@@ -988,6 +1018,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 14, fontWeight: 500, color: C.black }}>{p.name} {p.is_marquee && <span style={{ fontSize: 9, color: C.gray, fontWeight: 700 }}>MQ</span>}</div>
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
+                        <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} />
                       </div>
                       <div style={{ textAlign: "right", marginRight: 4 }}>
                         <div style={{ fontSize: 13, color: "#014421", fontWeight: 700 }}>${p.price}</div>
@@ -1118,8 +1149,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
           {/* Buttons - always pinned to bottom */}
           <div style={{ flexShrink: 0, borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
-            {hasSquad && !(activeGw === 1) && !transfersOpen ? (
-              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>Transfer window closed. It opens after the round.</div>
+            {deadlinePassed || (hasSquad && !(activeGw === 1) && !transfersOpen) ? (
+              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>{deadlinePassed ? "Deadline passed. Squads are locked for this gameweek." : "Transfer window closed. It opens after the round."}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
@@ -1232,6 +1263,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                 <input value={search} onChange={e => setSearch(e.target.value.slice(0, 50))} placeholder="Search player..." style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.black, borderRadius: 7, padding: "7px 11px", fontSize: 12, outline: "none", marginBottom: 8 }} />
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {["ALL", "BAT", "BOWL", "AR", "WK"].map(r => <button key={r} onClick={() => setFilterRole(r)} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${filterRole === r ? C.crimson : C.border}`, background: filterRole === r ? "#eeeeee" : "transparent", color: filterRole === r ? C.crimson : C.gray, cursor: "pointer", fontSize: 11, fontWeight: 500 }}>{r === "ALL" ? "All" : ROLE_LABELS[r]}</button>)}
+                  {hasFixtures && <button onClick={() => setPlayingOnly(v => !v)} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${playingOnly ? "#4B0082" : C.border}`, background: playingOnly ? "#4B0082" : "transparent", color: playingOnly ? "#ffffff" : C.gray, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Playing this week</button>}
                 </div>
               </div>
               <div style={{ overflowY: "auto", padding: "5px 10px 16px" }}>
@@ -1246,6 +1278,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                           {p.is_marquee && <span style={{ background: C.bgCard + "20", color: C.gray, border: `1px solid ${C.gold}40`, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>MARQUEE</span>}
                         </div>
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
+                        <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} />
                       </div>
                       <div style={{ textAlign: "right", marginRight: 3, flexShrink: 0 }}>
                         <div style={{ fontSize: 12, color: "#014421", fontWeight: 700 }}>${p.price}</div>
