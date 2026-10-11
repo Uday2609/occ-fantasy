@@ -64,7 +64,7 @@ const GW_DEADLINES = {
 };
 
 const SCORING = [
-  { label: "Run scored", value: "1 pt" }, { label: "Boundary (4)", value: "+1 bonus" },
+  { label: "Run scored", value: "0.5 pts" }, { label: "Boundary (4)", value: "+1 bonus" },
   { label: "Six (6)", value: "+1 bonus" }, { label: "Half-century (50)", value: "+10 pts" },
   { label: "Century (100)", value: "+25 pts" }, { label: "Not out", value: "+1 pt" },
   { label: "Duck", value: "-5 pts" }, { label: "Wicket taken", value: "10 pts" },
@@ -116,7 +116,7 @@ function useIsMobile() {
 
 function calcPoints(s) {
   let pts = 0;
-  pts += (s.runs || 0); pts += (s.fours || 0) * 1; pts += (s.sixes || 0) * 1;
+  pts += (s.runs || 0) * 0.5; pts += (s.fours || 0) * 1; pts += (s.sixes || 0) * 1;
   if ((s.runs || 0) >= 100) pts += 25; else if ((s.runs || 0) >= 50) pts += 10;
   if (s.was_dismissed && (s.runs || 0) === 0 && s.did_bat) pts -= 5;
   if (s.did_bat && !s.was_dismissed) pts += 1; // not out bonus
@@ -1806,7 +1806,7 @@ function HowToPlayPage() {
         {/* Quick scoring reminder */}
         <div style={{ background: C.black + "10", border: `1px solid ${C.crimson}30`, borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 10, color: C.black, fontWeight: 700, letterSpacing: 1 }}>QUICK SCORING GUIDE</div>
-          {[["Run", "1pt"], ["4", "+1pt"], ["6", "+1pt"], ["50", "+10pt"], ["100", "+25pt"], ["Wkt", "10pt"], ["Maiden", "1pt"], ["Catch", "5pt"], ["Drop", "-3pt"]].map(([l, v]) => (
+          {[["Run", "0.5pt"], ["4", "+1pt"], ["6", "+1pt"], ["50", "+10pt"], ["100", "+25pt"], ["Wkt", "10pt"], ["Maiden", "1pt"], ["Catch", "5pt"], ["Drop", "-3pt"]].map(([l, v]) => (
             <div key={l} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.black }}>{v}</div>
               <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>{l}</div>
