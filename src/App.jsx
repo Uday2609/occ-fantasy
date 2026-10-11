@@ -1495,7 +1495,9 @@ function LeaderboardPage() {
       const gwMap = {};
       (fp || []).filter(r => r.gameweek_id === lastGw).forEach(r => { gwMap[r.user_id] = r.total_pts; });
       setLatestGw(lastGw); setGwPts(gwMap);
-      if (data) setEntries(data);
+      // Only managers who entered a team in a scored GW and have points
+      const entered = new Set((fp || []).map(r => r.user_id));
+      if (data) setEntries(data.filter(p => entered.has(p.id) && (p.total_pts || 0) > 0));
       setLoading(false);
     };
     fetch();
@@ -1523,7 +1525,7 @@ function LeaderboardPage() {
               <span>#</span><span>MANAGER</span><span style={{ textAlign: "right" }}>{latestGw ? `GW${latestGw}` : "GW"}</span><span style={{ textAlign: "right" }}>TOTAL</span>
             </div>
             {entries.length === 0 ? (
-              <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No members yet.</div>
+              <div style={{ textAlign: "center", color: C.gray, padding: "40px 0", fontSize: 13 }}>No scores yet.</div>
             ) : entries.map((p, i) => (
               <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 70px 80px", padding: "11px 16px", borderBottom: i < entries.length - 1 ? `1px solid ${C.border}` : "none", alignItems: "center", cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: hasPoints && i < 3 ? "#111111" : "#cccccc" }}>{i + 1}</span>
