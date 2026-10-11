@@ -64,12 +64,13 @@ const GW_DEADLINES = {
 };
 
 const SCORING = [
-  { label: "Run scored", value: "1 pt" }, { label: "Boundary (4)", value: "+4 bonus" },
-  { label: "Six (6)", value: "+6 bonus" }, { label: "Half-century (50)", value: "+20 pts" },
-  { label: "Century (100)", value: "+35 pts" }, { label: "Duck", value: "-5 pts" },
-  { label: "Wicket taken", value: "10 pts" }, { label: "3-wicket haul", value: "+20 pts" },
-  { label: "5-wicket haul", value: "+35 pts" }, { label: "No ball bowled", value: "-3 pts" },
-  { label: "Every 3 wides", value: "-1 pt" }, { label: "Catch", value: "3 pts" },
+  { label: "Run scored", value: "1 pt" }, { label: "Boundary (4)", value: "+1 bonus" },
+  { label: "Six (6)", value: "+1 bonus" }, { label: "Half-century (50)", value: "+10 pts" },
+  { label: "Century (100)", value: "+25 pts" }, { label: "Not out", value: "+1 pt" },
+  { label: "Duck", value: "-5 pts" }, { label: "Wicket taken", value: "10 pts" },
+  { label: "3-wicket haul", value: "+10 pts" }, { label: "5-wicket haul", value: "+25 pts" },
+  { label: "Maiden over", value: "1 pt" }, { label: "No ball bowled", value: "-3 pts" },
+  { label: "Every 3 wides", value: "-1 pt" }, { label: "Catch", value: "5 pts" },
   { label: "Run out", value: "5 pts" }, { label: "Stumping", value: "3 pts" },
   { label: "Dropped catch", value: "-3 pts" }, { label: "Captain", value: "2x points" },
   { label: "Vice Captain", value: "1.5x points" },
@@ -115,12 +116,14 @@ function useIsMobile() {
 
 function calcPoints(s) {
   let pts = 0;
-  pts += (s.runs || 0); pts += (s.fours || 0) * 4; pts += (s.sixes || 0) * 6;
-  if ((s.runs || 0) >= 100) pts += 35; else if ((s.runs || 0) >= 50) pts += 20;
+  pts += (s.runs || 0); pts += (s.fours || 0) * 1; pts += (s.sixes || 0) * 1;
+  if ((s.runs || 0) >= 100) pts += 25; else if ((s.runs || 0) >= 50) pts += 10;
   if (s.was_dismissed && (s.runs || 0) === 0 && s.did_bat) pts -= 5;
+  if (s.did_bat && !s.was_dismissed) pts += 1; // not out bonus
   pts += (s.wickets || 0) * 10;
-  if (s.five_fer) pts += 35; else if (s.three_fer) pts += 20;
-  pts += (s.catches || 0) * 3; pts += (s.run_outs || 0) * 5; pts += (s.stumpings || 0) * 3;
+  if (s.five_fer) pts += 25; else if (s.three_fer) pts += 10;
+  pts += (s.maidens || 0) * 1;
+  pts += (s.catches || 0) * 5; pts += (s.run_outs || 0) * 5; pts += (s.stumpings || 0) * 3;
   pts -= (s.dropped_catches || 0) * 3;
   pts -= (s.no_balls || 0) * 3; pts -= Math.floor((s.wides || 0) / 3);
   return pts;
@@ -1803,7 +1806,7 @@ function HowToPlayPage() {
         {/* Quick scoring reminder */}
         <div style={{ background: C.black + "10", border: `1px solid ${C.crimson}30`, borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 10, color: C.black, fontWeight: 700, letterSpacing: 1 }}>QUICK SCORING GUIDE</div>
-          {[["Run", "1pt"], ["4", "+4pt"], ["6", "+6pt"], ["50", "+20pt"], ["100", "+35pt"], ["Wkt", "10pt"], ["Catch", "3pt"], ["Drop", "-3pt"]].map(([l, v]) => (
+          {[["Run", "1pt"], ["4", "+1pt"], ["6", "+1pt"], ["50", "+10pt"], ["100", "+25pt"], ["Wkt", "10pt"], ["Maiden", "1pt"], ["Catch", "5pt"], ["Drop", "-3pt"]].map(([l, v]) => (
             <div key={l} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.black }}>{v}</div>
               <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>{l}</div>
@@ -1868,7 +1871,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
     return field.startsWith("did_") || field.startsWith("was_") || field.startsWith("five_") || field.startsWith("three_") ? false : 0;
   };
   const setVal = (pid, field, value) => setScores(s => ({ ...s, [pid]: { ...(s[pid] || {}), [field]: value } }));
-  const preview = (pid) => calcPoints({ runs: getVal(pid, "runs"), fours: getVal(pid, "fours"), sixes: getVal(pid, "sixes"), wickets: getVal(pid, "wickets"), catches: getVal(pid, "catches"), run_outs: getVal(pid, "run_outs"), stumpings: getVal(pid, "stumpings"), dropped_catches: getVal(pid, "dropped_catches"), no_balls: getVal(pid, "no_balls"), wides: getVal(pid, "wides"), did_bat: getVal(pid, "did_bat"), was_dismissed: getVal(pid, "was_dismissed"), five_fer: getVal(pid, "five_fer"), three_fer: getVal(pid, "three_fer") });
+  const preview = (pid) => calcPoints({ runs: getVal(pid, "runs"), fours: getVal(pid, "fours"), sixes: getVal(pid, "sixes"), wickets: getVal(pid, "wickets"), catches: getVal(pid, "catches"), run_outs: getVal(pid, "run_outs"), stumpings: getVal(pid, "stumpings"), dropped_catches: getVal(pid, "dropped_catches"), maidens: getVal(pid, "maidens"), no_balls: getVal(pid, "no_balls"), wides: getVal(pid, "wides"), did_bat: getVal(pid, "did_bat"), was_dismissed: getVal(pid, "was_dismissed"), five_fer: getVal(pid, "five_fer"), three_fer: getVal(pid, "three_fer") });
 
   const toggleTransferWindow = async () => {
     setTogglingWindow(true);
@@ -1937,7 +1940,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
   const saveScores = async () => {
     setSaving(true); setMsg("");
     const rows = players.map(p => {
-      const s = { runs: getVal(p.id, "runs"), fours: getVal(p.id, "fours"), sixes: getVal(p.id, "sixes"), wickets: getVal(p.id, "wickets"), catches: getVal(p.id, "catches"), run_outs: getVal(p.id, "run_outs"), stumpings: getVal(p.id, "stumpings"), dropped_catches: getVal(p.id, "dropped_catches"), no_balls: getVal(p.id, "no_balls"), wides: getVal(p.id, "wides"), did_bat: getVal(p.id, "did_bat"), was_dismissed: getVal(p.id, "was_dismissed"), five_fer: getVal(p.id, "five_fer"), three_fer: getVal(p.id, "three_fer") };
+      const s = { runs: getVal(p.id, "runs"), fours: getVal(p.id, "fours"), sixes: getVal(p.id, "sixes"), wickets: getVal(p.id, "wickets"), catches: getVal(p.id, "catches"), run_outs: getVal(p.id, "run_outs"), stumpings: getVal(p.id, "stumpings"), dropped_catches: getVal(p.id, "dropped_catches"), maidens: getVal(p.id, "maidens"), no_balls: getVal(p.id, "no_balls"), wides: getVal(p.id, "wides"), did_bat: getVal(p.id, "did_bat"), was_dismissed: getVal(p.id, "was_dismissed"), five_fer: getVal(p.id, "five_fer"), three_fer: getVal(p.id, "three_fer") };
       return { player_id: p.id, gameweek_id: gw, ...s, calculated_pts: calcPoints(s) };
     });
     const { error } = await supabase.from("gameweek_scores").upsert(rows, { onConflict: "player_id,gameweek_id" });
@@ -2058,7 +2061,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
               </div>
               <div>
                 <div style={{ fontSize: 9, color: C.gray, fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>BOWLING</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "wickets", "Wkts", 60)}{numField(p.id, "no_balls", "NB", 52)}{numField(p.id, "wides", "Wides (-1 per 3)", 90)}{boolField(p.id, "three_fer", "3W")}{boolField(p.id, "five_fer", "5W")}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>{numField(p.id, "wickets", "Wkts", 60)}{numField(p.id, "maidens", "Maidens", 64)}{numField(p.id, "no_balls", "NB", 52)}{numField(p.id, "wides", "Wides (-1 per 3)", 90)}{boolField(p.id, "three_fer", "3W")}{boolField(p.id, "five_fer", "5W")}</div>
               </div>
               <div>
                 <div style={{ fontSize: 9, color: C.success, fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>FIELDING</div>
