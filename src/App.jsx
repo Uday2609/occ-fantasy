@@ -1969,6 +1969,8 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
       return { user_id: userId, gameweek_id: gw, raw_pts: Math.round(total), transfer_penalty: penalty, total_pts: finalPts };
     });
     await supabase.from("fantasy_points").upsert(pointsRows, { onConflict: "user_id,gameweek_id" });
+    // Publish: player scores for this GW become visible to everyone
+    await supabase.from("gameweeks").update({ points_published: true }).eq("number", gw);
     for (const { user_id } of pointsRows) {
       const { data: allPts } = await supabase.from("fantasy_points").select("total_pts").eq("user_id", user_id);
       const grand = allPts ? allPts.reduce((s, r) => s + (r.total_pts || 0), 0) : 0;
