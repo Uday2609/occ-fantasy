@@ -125,7 +125,7 @@ function calcPoints(s) {
   if ((s.runs || 0) >= 100) pts += 25; else if ((s.runs || 0) >= 50) pts += 10;
   const batted = didBat(s);
   if (s.was_dismissed && (s.runs || 0) === 0 && batted) pts -= 5;
-  if (batted && !s.was_dismissed) pts += 1; // not out bonus
+  if (s.did_bat && !s.was_dismissed) pts += 1; // not out bonus: Batted on, Out off
   pts += (s.wickets || 0) * 10;
   if (s.five_fer) pts += 25; else if (s.three_fer) pts += 10;
   pts += (s.maidens || 0) * 1;
@@ -616,7 +616,7 @@ function PlayerProfileModal({ player, onClose, purchasePrice = null, fixture = n
             {scores.map(s => (
               <div key={s.gameweek_id} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 1fr 56px", padding: "8px 12px", borderBottom: "1px solid #eeeeee", fontSize: 12, alignItems: "center", color: "#333333" }}>
                 <span style={{ color: "#111111", fontWeight: 700 }}>GW{s.gameweek_id}</span>
-                <span>{!didBat(s) ? "DNB" : `${s.runs || 0}${!s.was_dismissed ? "*" : ""}`}{s.fours ? ` · ${s.fours}x4` : ""}{s.sixes ? ` · ${s.sixes}x6` : ""}</span>
+                <span>{!didBat(s) ? "DNB" : `${s.runs || 0}${s.did_bat && !s.was_dismissed ? "*" : ""}`}{s.fours ? ` · ${s.fours}x4` : ""}{s.sixes ? ` · ${s.sixes}x6` : ""}</span>
                 <span>{s.wickets || 0} wkt{(s.wickets || 0) === 1 ? "" : "s"}{s.maidens ? ` · ${s.maidens}M` : ""}</span>
                 <span>{(s.catches || 0)} {(s.catches || 0) === 1 ? "catch" : "catches"}{s.run_outs ? ` · ${s.run_outs}ro` : ""}{s.stumpings ? ` · ${s.stumpings}st` : ""}</span>
                 <span style={{ textAlign: "right", fontWeight: 700, color: "#111111" }}>{s.calculated_pts || 0}</span>
