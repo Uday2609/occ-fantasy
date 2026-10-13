@@ -114,12 +114,18 @@ function useIsMobile() {
   return mobile;
 }
 
+// Batted if marked, dismissed, or scored anything (Batted toggle is easy to forget)
+function didBat(s) {
+  return !!(s.did_bat || s.was_dismissed || (s.runs || 0) > 0 || (s.fours || 0) > 0 || (s.sixes || 0) > 0);
+}
+
 function calcPoints(s) {
   let pts = 0;
   pts += (s.runs || 0) * 0.5; pts += (s.fours || 0) * 1; pts += (s.sixes || 0) * 1;
   if ((s.runs || 0) >= 100) pts += 25; else if ((s.runs || 0) >= 50) pts += 10;
-  if (s.was_dismissed && (s.runs || 0) === 0 && s.did_bat) pts -= 5;
-  if (s.did_bat && !s.was_dismissed) pts += 1; // not out bonus
+  const batted = didBat(s);
+  if (s.was_dismissed && (s.runs || 0) === 0 && batted) pts -= 5;
+  if (batted && !s.was_dismissed) pts += 1; // not out bonus
   pts += (s.wickets || 0) * 10;
   if (s.five_fer) pts += 25; else if (s.three_fer) pts += 10;
   pts += (s.maidens || 0) * 1;
@@ -610,7 +616,7 @@ function PlayerProfileModal({ player, onClose, purchasePrice = null, fixture = n
             {scores.map(s => (
               <div key={s.gameweek_id} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 1fr 56px", padding: "8px 12px", borderBottom: "1px solid #eeeeee", fontSize: 12, alignItems: "center", color: "#333333" }}>
                 <span style={{ color: "#111111", fontWeight: 700 }}>GW{s.gameweek_id}</span>
-                <span>{s.did_bat === false ? "DNB" : `${s.runs || 0}${s.did_bat && !s.was_dismissed ? "*" : ""}`}{s.fours ? ` · ${s.fours}x4` : ""}{s.sixes ? ` · ${s.sixes}x6` : ""}</span>
+                <span>{!didBat(s) ? "DNB" : `${s.runs || 0}${!s.was_dismissed ? "*" : ""}`}{s.fours ? ` · ${s.fours}x4` : ""}{s.sixes ? ` · ${s.sixes}x6` : ""}</span>
                 <span>{s.wickets || 0} wkt{(s.wickets || 0) === 1 ? "" : "s"}{s.maidens ? ` · ${s.maidens}M` : ""}</span>
                 <span>{(s.catches || 0)} {(s.catches || 0) === 1 ? "catch" : "catches"}{s.run_outs ? ` · ${s.run_outs}ro` : ""}{s.stumpings ? ` · ${s.stumpings}st` : ""}</span>
                 <span style={{ textAlign: "right", fontWeight: 700, color: "#111111" }}>{s.calculated_pts || 0}</span>
@@ -1935,7 +1941,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
     if (existingScores[pid]?.[field] !== undefined) return existingScores[pid][field];
     return field.startsWith("did_") || field.startsWith("was_") || field.startsWith("five_") || field.startsWith("three_") ? false : 0;
   };
-  const setVal = (pid, field, value) => setScores(s => ({ ...s, [pid]: { ...(s[pid] || {}), [field]: value } }));
+  const setVal = (pid, field, value) => setScores(s => ({ ...s, [pid]: { ...(s[pid] || {}), [field]: value, ...((["runs", "fours", "sixes"].includes(field) && value > 0) || (field === "was_dismissed" && value) ? { did_bat: true } : {}) } }));
   const preview = (pid) => calcPoints({ runs: getVal(pid, "runs"), fours: getVal(pid, "fours"), sixes: getVal(pid, "sixes"), wickets: getVal(pid, "wickets"), catches: getVal(pid, "catches"), run_outs: getVal(pid, "run_outs"), stumpings: getVal(pid, "stumpings"), dropped_catches: getVal(pid, "dropped_catches"), maidens: getVal(pid, "maidens"), no_balls: getVal(pid, "no_balls"), wides: getVal(pid, "wides"), did_bat: getVal(pid, "did_bat"), was_dismissed: getVal(pid, "was_dismissed"), five_fer: getVal(pid, "five_fer"), three_fer: getVal(pid, "three_fer") });
 
   const toggleTransferWindow = async () => {
