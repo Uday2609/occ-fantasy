@@ -546,6 +546,8 @@ function PlayerProfileModal({ player, onClose, purchasePrice = null, fixture = n
   const best = played ? Math.max(...scores.map(r => r.calculated_pts || 0)) : 0;
   const fifties = scores.filter(r => (r.runs || 0) >= 50).length;
   const priceDiff = purchasePrice != null ? player.price - purchasePrice : 0;
+  const basePrice = player.start_price ?? purchasePrice ?? player.price;
+  const seasonDiff = Math.round((player.price - basePrice) * 10) / 10;
   const statBox = (l, v) => (
     <div key={l} style={{ background: "#fafafa", border: "1px solid #eeeeee", borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
       <div style={{ fontSize: 18, fontWeight: 700, color: "#111111" }}>{v}</div>
@@ -554,18 +556,28 @@ function PlayerProfileModal({ player, onClose, purchasePrice = null, fixture = n
   );
   return (
     <Modal title={player.name} onClose={onClose}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <RoleBadge role={player.role} />
         {player.is_marquee && <span style={{ background: "#f5f5f5", color: "#666666", border: "1px solid #e5e5e5", borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>MARQUEE</span>}
-        <span style={{ fontSize: 15, color: "#014421", fontWeight: 800, marginLeft: "auto" }}>${player.price}</span>
       </div>
-      <div style={{ fontSize: 12, color: "#666666", marginBottom: 14, textAlign: "right" }}>
-        {purchasePrice == null
-          ? "Current price"
-          : priceDiff === 0
-            ? `Bought at $${purchasePrice} · no change`
-            : <span>Bought at ${purchasePrice} · <span style={{ color: priceDiff > 0 ? "#15803d" : "#dc2626", fontWeight: 700 }}>{priceDiff > 0 ? "▲ +" : "▼ -"}${Math.abs(priceDiff)}</span></span>}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <div style={{ background: "#fafafa", border: "1px solid #eeeeee", borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#014421" }}>${player.price}</div>
+          <div style={{ fontSize: 9, color: "#888888", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginTop: 2 }}>Price</div>
+        </div>
+        <div style={{ background: "#fafafa", border: "1px solid #eeeeee", borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: seasonDiff > 0 ? "#15803d" : seasonDiff < 0 ? "#dc2626" : "#aaaaaa" }}>
+            {seasonDiff > 0 ? `▲ $${seasonDiff}` : seasonDiff < 0 ? `▼ $${Math.abs(seasonDiff)}` : "–"}
+          </div>
+          <div style={{ fontSize: 9, color: "#888888", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginTop: 2 }}>Price change</div>
+        </div>
       </div>
+      {purchasePrice != null && (
+        <div style={{ fontSize: 12, color: "#666666", marginBottom: 14, textAlign: "center" }}>
+          You bought at ${purchasePrice}{priceDiff !== 0 && <span> · <span style={{ color: priceDiff > 0 ? "#15803d" : "#dc2626", fontWeight: 700 }}>{priceDiff > 0 ? "+" : "-"}${Math.abs(priceDiff)} since</span></span>}
+        </div>
+      )}
+      {purchasePrice == null && <div style={{ marginBottom: 6 }} />}
       {hasFixtures && (
         <div style={{ background: "#fafafa", border: "1px solid #eeeeee", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 12 }}>
           <span style={{ color: "#888888", fontWeight: 600, textTransform: "uppercase", fontSize: 9, letterSpacing: 1, marginRight: 8 }}>This week</span>
@@ -600,7 +612,7 @@ function PlayerProfileModal({ player, onClose, purchasePrice = null, fixture = n
                 <span style={{ color: "#111111", fontWeight: 700 }}>GW{s.gameweek_id}</span>
                 <span>{s.did_bat === false ? "DNB" : `${s.runs || 0}${s.did_bat && !s.was_dismissed ? "*" : ""}`}{s.fours ? ` · ${s.fours}x4` : ""}{s.sixes ? ` · ${s.sixes}x6` : ""}</span>
                 <span>{s.wickets || 0} wkt{(s.wickets || 0) === 1 ? "" : "s"}{s.maidens ? ` · ${s.maidens}M` : ""}</span>
-                <span>{(s.catches || 0)}ct{s.run_outs ? ` · ${s.run_outs}ro` : ""}{s.stumpings ? ` · ${s.stumpings}st` : ""}</span>
+                <span>{(s.catches || 0)} {(s.catches || 0) === 1 ? "catch" : "catches"}{s.run_outs ? ` · ${s.run_outs}ro` : ""}{s.stumpings ? ` · ${s.stumpings}st` : ""}</span>
                 <span style={{ textAlign: "right", fontWeight: 700, color: "#111111" }}>{s.calculated_pts || 0}</span>
               </div>
             ))}
