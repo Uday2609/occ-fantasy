@@ -521,7 +521,14 @@ function AccountPage({ user, profile, onLogout }) {
 
 // --- PLAYER PROFILE MODAL ---
 
-function PlayerProfileModal({ player, onClose }) {
+function InfoBtn({ onClick }) {
+  return (
+    <button aria-label="Player info" title="Player info" onClick={e => { e.stopPropagation(); onClick(); }}
+      style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid #cccccc", background: "#ffffff", color: "#555555", fontSize: 11, fontWeight: 700, fontStyle: "italic", fontFamily: "Georgia, serif", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0, verticalAlign: "middle", lineHeight: 1 }}>i</button>
+  );
+}
+
+function PlayerProfileModal({ player, onClose, purchasePrice = null, fixture = null, hasFixtures = false }) {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -532,41 +539,69 @@ function PlayerProfileModal({ player, onClose }) {
     };
     fetch();
   }, [player.id]);
-  const totalRuns = scores.reduce((s, r) => s + (r.runs || 0), 0);
-  const totalWkts = scores.reduce((s, r) => s + (r.wickets || 0), 0);
-  const totalCatches = scores.reduce((s, r) => s + (r.catches || 0), 0);
-  const totalPts = scores.reduce((s, r) => s + (r.calculated_pts || 0), 0);
+  const sum = (k) => scores.reduce((s, r) => s + (r[k] || 0), 0);
+  const totalPts = Math.round(sum("calculated_pts") * 10) / 10;
+  const played = scores.length;
+  const avgPts = played ? Math.round((totalPts / played) * 10) / 10 : 0;
+  const best = played ? Math.max(...scores.map(r => r.calculated_pts || 0)) : 0;
+  const fifties = scores.filter(r => (r.runs || 0) >= 50).length;
+  const priceDiff = purchasePrice != null ? player.price - purchasePrice : 0;
+  const statBox = (l, v) => (
+    <div key={l} style={{ background: "#fafafa", border: "1px solid #eeeeee", borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#111111" }}>{v}</div>
+      <div style={{ fontSize: 9, color: "#888888", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginTop: 2 }}>{l}</div>
+    </div>
+  );
   return (
     <Modal title={player.name} onClose={onClose}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <RoleBadge role={player.role} />
-        {player.is_marquee && <span style={{ background: C.bgCard + "20", color: C.gray, border: `1px solid ${C.gold}40`, borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>MARQUEE</span>}
-        <span style={{ fontSize: 13, color: "#014421", fontWeight: 700, marginLeft: "auto" }}>${player.price}</span>
+        {player.is_marquee && <span style={{ background: "#f5f5f5", color: "#666666", border: "1px solid #e5e5e5", borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 600 }}>MARQUEE</span>}
+        <span style={{ fontSize: 15, color: "#014421", fontWeight: 800, marginLeft: "auto" }}>${player.price}</span>
+      </div>
+      <div style={{ fontSize: 12, color: "#666666", marginBottom: 14, textAlign: "right" }}>
+        {purchasePrice == null
+          ? "Current price"
+          : priceDiff === 0
+            ? `Bought at $${purchasePrice} · no change`
+            : <span>Bought at ${purchasePrice} · <span style={{ color: priceDiff > 0 ? "#15803d" : "#dc2626", fontWeight: 700 }}>{priceDiff > 0 ? "▲ +" : "▼ -"}${Math.abs(priceDiff)}</span></span>}
+      </div>
+      {hasFixtures && (
+        <div style={{ background: "#fafafa", border: "1px solid #eeeeee", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 12 }}>
+          <span style={{ color: "#888888", fontWeight: 600, textTransform: "uppercase", fontSize: 9, letterSpacing: 1, marginRight: 8 }}>This week</span>
+          <FixtureLine f={fixture} hasFixtures={hasFixtures} />
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 8 }}>
+        {[["Total pts", totalPts], ["Avg / GW", avgPts], ["Best GW", best], ["Played", played]].map(([l, v]) => statBox(l, v))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 18 }}>
-        {[["Pts", totalPts, C.crimson], ["Runs", totalRuns, C.indigo], ["Wickets", totalWkts, C.gold], ["Catches", totalCatches, C.success]].map(([l, v, a]) => (
-          <div key={l} style={{ background: C.bg, borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: a }}>{v}</div>
-            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", marginTop: 2 }}>{l}</div>
-          </div>
-        ))}
+        {[["Runs", sum("runs")], ["4s / 6s", `${sum("fours")}/${sum("sixes")}`], ["Wickets", sum("wickets")], ["Catches", sum("catches")]].map(([l, v]) => statBox(l, v))}
       </div>
+      {played > 0 && (fifties > 0 || sum("maidens") > 0 || sum("stumpings") > 0 || sum("run_outs") > 0) && (
+        <div style={{ fontSize: 12, color: "#666666", marginBottom: 14, display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {fifties > 0 && <span>50+ scores: <b style={{ color: "#111111" }}>{fifties}</b></span>}
+          {sum("maidens") > 0 && <span>Maidens: <b style={{ color: "#111111" }}>{sum("maidens")}</b></span>}
+          {sum("run_outs") > 0 && <span>Run outs: <b style={{ color: "#111111" }}>{sum("run_outs")}</b></span>}
+          {sum("stumpings") > 0 && <span>Stumpings: <b style={{ color: "#111111" }}>{sum("stumpings")}</b></span>}
+        </div>
+      )}
       {loading ? <Spinner label="Loading stats..." /> : scores.length === 0 ? (
-        <div style={{ textAlign: "center", color: C.gray, padding: "20px 0", fontSize: 13 }}>No gameweek data yet. The season hasn't started.</div>
+        <div style={{ textAlign: "center", color: "#888888", padding: "20px 0", fontSize: 13 }}>No scored gameweeks yet.</div>
       ) : (
         <div>
-          <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 8 }}>GAMEWEEK BREAKDOWN</div>
-          <div style={{ background: C.bg, borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 1fr 70px", padding: "7px 12px", fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>GAMEWEEK BREAKDOWN</div>
+          <div style={{ border: "1px solid #eeeeee", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 1fr 56px", padding: "7px 12px", fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", borderBottom: "1px solid #eeeeee" }}>
               <span>GW</span><span>Batting</span><span>Bowling</span><span>Fielding</span><span style={{ textAlign: "right" }}>Pts</span>
             </div>
             {scores.map(s => (
-              <div key={s.gameweek_id} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 1fr 70px", padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 12, alignItems: "center" }}>
-                <span style={{ color: C.black, fontWeight: 700 }}>GW{s.gameweek_id}</span>
-                <span style={{ color: C.blackD }}>{s.runs || 0} runs{s.fours ? `, ${s.fours}x4` : ""}{s.sixes ? `, ${s.sixes}x6` : ""}</span>
-                <span style={{ color: C.blackD }}>{s.wickets || 0} wkts</span>
-                <span style={{ color: C.blackD }}>{(s.catches || 0) + (s.run_outs || 0) + (s.stumpings || 0)} field</span>
-                <span style={{ textAlign: "right", fontWeight: 700, color: C.black }}>{s.calculated_pts || 0}</span>
+              <div key={s.gameweek_id} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 1fr 56px", padding: "8px 12px", borderBottom: "1px solid #eeeeee", fontSize: 12, alignItems: "center", color: "#333333" }}>
+                <span style={{ color: "#111111", fontWeight: 700 }}>GW{s.gameweek_id}</span>
+                <span>{s.did_bat === false ? "DNB" : `${s.runs || 0}${s.did_bat && !s.was_dismissed ? "*" : ""}`}{s.fours ? ` · ${s.fours}x4` : ""}{s.sixes ? ` · ${s.sixes}x6` : ""}</span>
+                <span>{s.wickets || 0} wkt{(s.wickets || 0) === 1 ? "" : "s"}{s.maidens ? ` · ${s.maidens}M` : ""}</span>
+                <span>{(s.catches || 0)}ct{s.run_outs ? ` · ${s.run_outs}ro` : ""}{s.stumpings ? ` · ${s.stumpings}st` : ""}</span>
+                <span style={{ textAlign: "right", fontWeight: 700, color: "#111111" }}>{s.calculated_pts || 0}</span>
               </div>
             ))}
           </div>
@@ -853,6 +888,13 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   };
 
   const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
+  const [profilePlayer, setProfilePlayer] = useState(null);
+  const squadLocked = deadlinePassed || (hasSquad && activeGw !== 1 && !transfersOpen);
+  const profileModal = profilePlayer && (
+    <PlayerProfileModal player={profilePlayer} onClose={() => setProfilePlayer(null)}
+      purchasePrice={squad.find(x => x.id === profilePlayer.id)?.purchase_price ?? null}
+      fixture={fixtureMap[profilePlayer.id]} hasFixtures={hasFixtures} />
+  );
 
   const pickerList = players.filter(p => (filterRole === "ALL" || p.role === filterRole) && (search === "" || p.name.toLowerCase().includes(search.toLowerCase())) && (!playingOnly || !hasFixtures || fixtureMap[p.id]));
   const grouped = { BAT: [], BOWL: [], AR: [], WK: [] };
@@ -869,14 +911,14 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
         <div
           style={{ background: C.bg, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `2px solid ${isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.3)" : "transparent"}`, cursor: "pointer", transition: "border-color 0.15s" }}
-          onClick={e => { e.stopPropagation(); setCaptainMenu(menuOpen ? null : p.id); }}
+          onClick={e => { e.stopPropagation(); if (squadLocked) { setCaptainMenu(null); setProfilePlayer(p); } else setCaptainMenu(menuOpen ? null : p.id); }}
         >
           <div style={{ fontSize: 8, color: ROLE_COLORS[p.role], fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.black, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
           <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} compact />
           <div style={{ fontSize: 9, fontWeight: 700, color: isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.5)" : "transparent", marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
         </div>
-        {menuOpen && (
+        {menuOpen && !squadLocked && (
           <div style={{ position: "absolute", top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 6, padding: 4, zIndex: 50, minWidth: 140, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", animation: "fadeUp 0.15s ease" }} onClick={e => e.stopPropagation()}>
             <button
               onClick={() => { setCaptain(isC ? null : p.id); if (viceCaptain === p.id) setViceCaptain(null); setCaptainMenu(null); }}
@@ -889,6 +931,12 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               style={{ display: "block", width: "100%", padding: "8px 10px", background: isVC ? C.gray + "20" : "transparent", border: "none", borderRadius: 5, color: isVC ? "#4B0082" : "#111111", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
             >
               {isVC ? "✓ " : ""} Vice Captain (1.5x)
+            </button>
+            <button
+              onClick={() => { setCaptainMenu(null); setProfilePlayer(p); }}
+              style={{ display: "block", width: "100%", padding: "8px 10px", background: "transparent", border: "none", borderTop: "1px solid #eeeeee", borderRadius: 0, color: "#111111", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+            >
+              Player info
             </button>
           </div>
         )}
@@ -930,7 +978,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
         {/* Pitch */}
         <div style={{ background: "repeating-linear-gradient(180deg, #014421 0px, #014421 44px, #025229 44px, #025229 88px)", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
-          <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>TAP TO SET C / VC</div>
+          <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>{squadLocked ? "TAP A PLAYER FOR INFO" : "TAP TO SET C / VC"}</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div style={{ textAlign: "center", color: "rgba(0,0,0,0.4)", fontSize: 13 }}>Add players to see your pitch</div>
@@ -1019,7 +1067,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                   return (
                     <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 4px", borderBottom: `1px solid ${C.border}`, opacity: !inSquad && !addable ? 0.3 : 1 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: C.black }}>{p.name} {p.is_marquee && <span style={{ fontSize: 9, color: C.gray, fontWeight: 700 }}>MQ</span>}</div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: C.black, display: "flex", alignItems: "center", gap: 6 }}>{p.name} {p.is_marquee && <span style={{ fontSize: 9, color: C.gray, fontWeight: 700 }}>MQ</span>}<InfoBtn onClick={() => setProfilePlayer(p)} /></div>
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
                         <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} />
                       </div>
@@ -1040,6 +1088,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         )}
 
         {/* GW breakdown modal */}
+        {profileModal}
         {showGwBreakdown && (
           <Modal title={`GW${activeGw} Breakdown`} onClose={() => setShowGwBreakdown(false)}>
             {loadingBreakdown ? <Spinner label="Loading..." /> : gwBreakdown.length === 0
@@ -1170,7 +1219,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           <div style={{ position: "absolute", inset: 6, border: "1px solid rgba(0,0,0,0.06)", borderRadius: 4, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", width: 60, height: 100, border: "1px solid rgba(0,0,0,0.05)", borderRadius: 2, pointerEvents: "none" }} />
 
-          <div style={{ fontSize: 8, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 10, flexShrink: 0, textTransform: "uppercase" }}>YOUR PITCH · TAP TO SET C / VC</div>
+          <div style={{ fontSize: 8, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 10, flexShrink: 0, textTransform: "uppercase" }}>{squadLocked ? "YOUR PITCH · TAP A PLAYER FOR INFO" : "YOUR PITCH · TAP TO SET C / VC"}</div>
 
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1279,6 +1328,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                         <div style={{ fontSize: 12, fontWeight: 500, color: C.black, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                           {p.name}
                           {p.is_marquee && <span style={{ background: C.bgCard + "20", color: C.gray, border: `1px solid ${C.gold}40`, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>MARQUEE</span>}
+                          <InfoBtn onClick={() => setProfilePlayer(p)} />
                         </div>
                         <div style={{ marginTop: 2 }}><RoleBadge role={p.role} /></div>
                         <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} />
@@ -1301,6 +1351,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
       )}
 
+      {profileModal}
       {showGwBreakdown && (
         <Modal title={`GW${activeGw} Points Breakdown`} onClose={() => setShowGwBreakdown(false)}>
           {loadingBreakdown ? <Spinner label="Loading..." /> : (
