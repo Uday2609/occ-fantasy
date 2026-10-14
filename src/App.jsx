@@ -381,7 +381,7 @@ function Nav({ page, setPage, user, profile, onLogout }) {
 
   const allTabs = [
     { id: "squad", label: "My Squad" }, { id: "players", label: "Players" },
-    { id: "leaderboard", label: "Leaderboard" }, { id: "teams", label: "View Teams" },
+    { id: "leaderboard", label: "Leaderboard" }, { id: "teams", label: "View Teams" }, { id: "managers", label: "Managers" },
     { id: "history", label: "GW History" }, { id: "stats", label: "Season Stats" },
     { id: "howtoplay", label: "How to Play" },
     ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
@@ -1551,6 +1551,60 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
   );
 }
 
+// --- MANAGERS PAGE ---
+
+function ManagersPage({ activeGw }) {
+  const [managers, setManagers] = useState([]);
+  const [setIds, setSetIds] = useState(new Set());
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: profs }, { data: sq }] = await Promise.all([
+        supabase.from("profiles").select("id, team_name, first_name, last_name"),
+        supabase.from("squads").select("user_id").eq("gameweek_id", activeGw),
+      ]);
+      const list = (profs || []).filter(p => p.team_name || p.first_name)
+        .sort((a, b) => (a.team_name || "").localeCompare(b.team_name || "", undefined, { sensitivity: "base" }));
+      setManagers(list);
+      setSetIds(new Set((sq || []).map(r => r.user_id)));
+      setLoading(false);
+    };
+    load();
+  }, [activeGw]);
+  const q = search.trim().toLowerCase();
+  const shown = managers.filter(p => !q || (p.team_name || "").toLowerCase().includes(q) || fullName(p).toLowerCase().includes(q));
+  const readyCount = managers.filter(p => setIds.has(p.id)).length;
+  return (
+    <div style={{ padding: "0 clamp(16px,4vw,32px) clamp(60px,8vw,48px)", background: "#ffffff", minHeight: "100vh" }}>
+      <Header title="Managers" sub={`${managers.length} signed up · ${readyCount} squad${readyCount === 1 ? "" : "s"} set for GW${activeGw}`} />
+      {loading ? <Spinner label="Loading managers..." /> : (
+        <div style={{ paddingTop: 20 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search team or name"
+            style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid #e5e5e5", borderRadius: 8, fontSize: 14, marginBottom: 14, outline: "none", background: "#ffffff", color: "#111111" }} />
+          <div style={{ border: "1px solid #eeeeee", borderRadius: 12, overflow: "hidden" }}>
+            {shown.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#888888", padding: "40px 0", fontSize: 13 }}>No managers found.</div>
+            ) : shown.map((p, i) => {
+              const ready = setIds.has(p.id);
+              return (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < shown.length - 1 ? "1px solid #eeeeee" : "none" }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#f2f2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#111111", flexShrink: 0 }}>{(p.team_name || p.first_name || "?")[0].toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.team_name || "Unnamed Team"}</div>
+                    <div style={{ fontSize: 11, color: "#888888" }}>{fullName(p)}</div>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "3px 8px", borderRadius: 4, flexShrink: 0, background: ready ? "#f0fdf4" : "#f5f5f5", color: ready ? "#15803d" : "#999999", border: `1px solid ${ready ? "#bbf7d0" : "#e5e5e5"}` }}>{ready ? "SQUAD SET" : "NO SQUAD"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- LEADERBOARD PAGE ---
 
 function LeaderboardPage() {
@@ -2238,6 +2292,7 @@ export default function App() {
         <div style={{ paddingTop: pageNeedsMobilePad ? 52 : 0, paddingBottom: pageNeedsMobilePad ? 60 : 0 }}>
           {page === "players" && <PlayersPage players={players} />}
           {page === "leaderboard" && <LeaderboardPage />}
+          {page === "managers" && <ManagersPage activeGw={activeGw} />}
           {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
           {page === "history" && <HistoryPage userId={session.user.id} />}
           {page === "stats" && <StatsPage players={players} />}
