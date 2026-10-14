@@ -1777,7 +1777,7 @@ function HistoryPage({ userId }) {
 
 // --- SEASON STATS PAGE ---
 
-function StatsPage({ players }) {
+function StatsPage({ players, activeGw }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1785,10 +1785,12 @@ function StatsPage({ players }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [scoresRes, ptsRes, squadRes] = await Promise.all([
+        const [scoresRes, ptsRes, squadRes, curRes, prevRes] = await Promise.all([
           supabase.from("gameweek_scores").select("player_id, runs, wickets, calculated_pts, gameweek_id"),
           supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, first_name, last_name)"),
           supabase.from("squads").select("player_id"),
+          activeGw > 1 ? supabase.from("squads").select("user_id, player_id").eq("gameweek_id", activeGw) : Promise.resolve({ data: [] }),
+          activeGw > 1 ? supabase.from("squads").select("user_id, player_id").eq("gameweek_id", activeGw - 1) : Promise.resolve({ data: [] }),
         ]);
 
         const scores = scoresRes.data || [];
@@ -1824,16 +1826,71 @@ function StatsPage({ players }) {
           .map(([pid, count]) => ({ player: players.find(p => p.id === parseInt(pid)) || null, count }))
           .filter(x => x.player);
 
-        setStats({ topScorer, topWicketer, bestFantasy, topPicked });
+        const byId = (pid) => players.find(p => p.id === parseInt(pid)) || null;
+        const top5 = (counts) => Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+          .map(([pid, count]) => ({ player: byId(pid), count })).filter(x => x.player);
+
+        // Season top fantasy player (sum of player points across published GWs)
+        const ptsByPlayer = {};
+        scores.forEach(s => { ptsByPlayer[s.player_id] = (ptsByPlayer[s.player_id] || 0) + (s.calculated_pts || 0); });
+        const topPtsEntry = Object.entries(ptsByPlayer).sort((a, b) => b[1] - a[1])[0];
+        const topFantasyPlayer = topPtsEntry ? { player: byId(topPtsEntry[0]), pts: Math.round(topPtsEntry[1] * 10) / 10 } : null;
+
+        // Player of the gameweek (latest scored GW)
+        const latestGw = scores.length ? Math.max(...scores.map(s => s.gameweek_id)) : null;
+        const gwBest = scores.filter(s => s.gameweek_id === latestGw).sort((a, b) => (b.calculated_pts || 0) - (a.calculated_pts || 0))[0];
+        const playerOfGw = gwBest ? { player: byId(gwBest.player_id), pts: gwBest.calculated_pts || 0, gw: latestGw } : null;
+
+        // Transfers in/out this GW: only managers who had a squad last GW (first squads ignored)
+        const toSets = (rows) => { const m = {}; rows.forEach(r => { (m[r.user_id] = m[r.user_id] || new Set()).add(r.player_id); }); return m; };
+        const cur = toSets(curRes.data || []); const prev = toSets(prevRes.data || []);
+        const inCounts = {}; const outCounts = {};
+        Object.keys(cur).forEach(uid => {
+          if (!prev[uid] || prev[uid].size === 0) return;
+          cur[uid].forEach(pid => { if (!prev[uid].has(pid)) inCounts[pid] = (inCounts[pid] || 0) + 1; });
+          prev[uid].forEach(pid => { if (!cur[uid].has(pid)) outCounts[pid] = (outCounts[pid] || 0) + 1; });
+        });
+
+        setStats({ topScorer, topWicketer, bestFantasy, topPicked, topFantasyPlayer, playerOfGw, transfersIn: top5(inCounts), transfersOut: top5(outCounts) });
       } catch (e) {
         setError("Failed to load stats. Please try again.");
       }
       setLoading(false);
     };
     load();
-  }, [players]);
+  }, [players, activeGw]);
 
   const noData = <div style={{ fontSize: 13, color: "#888888" }}>No data yet. Check back after gameweek 1.</div>;
+
+  const PlayerHero = ({ entry, value, label, color = "#111111" }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.black }}>{entry.player.name}</div>
+        <div style={{ marginTop: 4 }}><RoleBadge role={entry.player.role} /></div>
+      </div>
+      <div style={{ textAlign: "right" }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
+        <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase" }}>{label}</div>
+      </div>
+    </div>
+  );
+
+  const RankList = ({ items, color, empty }) => !items?.length ? <div style={{ fontSize: 13, color: "#888888" }}>{empty}</div> : (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {items.map(({ player, count }, i) => (
+        <div key={player.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 20, height: 20, borderRadius: "50%", background: color + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color, flexShrink: 0 }}>{i + 1}</div>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: C.black, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ height: 4, width: 60, background: "#eeeeee", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(count / (items[0]?.count || 1)) * 100}%`, background: color, borderRadius: 2 }} />
+            </div>
+            <span style={{ fontSize: 12, color, fontWeight: 600, minWidth: 24 }}>{count}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   const StatBlock = ({ title, accent, children }) => (
     <div style={{ background: C.bg, borderRadius: 12, padding: "20px", border: `1px solid ${accent}30` }}>
@@ -1850,7 +1907,23 @@ function StatsPage({ players }) {
       ) : error ? (
         <div style={{ textAlign: "center", color: C.danger, padding: "60px 0", fontSize: 13 }}>{error}</div>
       ) : (
-        <div style={{ paddingTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ paddingTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+
+          <StatBlock title="TOP FANTASY PLAYER" accent="#4B0082">
+            {!stats?.topFantasyPlayer?.player ? noData : <PlayerHero entry={stats.topFantasyPlayer} value={stats.topFantasyPlayer.pts} label="SEASON PTS" color="#4B0082" />}
+          </StatBlock>
+
+          <StatBlock title={stats?.playerOfGw ? `PLAYER OF THE WEEK · GW${stats.playerOfGw.gw}` : "PLAYER OF THE WEEK"} accent="#4B0082">
+            {!stats?.playerOfGw?.player ? noData : <PlayerHero entry={stats.playerOfGw} value={stats.playerOfGw.pts} label={`GW${stats.playerOfGw.gw} PTS`} color="#4B0082" />}
+          </StatBlock>
+
+          <StatBlock title={`MOST TRANSFERRED IN · GW${activeGw}`} accent="#15803d">
+            <RankList items={stats?.transfersIn} color="#15803d" empty={activeGw > 1 ? "No transfers made yet this gameweek." : "Transfers start from GW2."} />
+          </StatBlock>
+
+          <StatBlock title={`MOST TRANSFERRED OUT · GW${activeGw}`} accent="#dc2626">
+            <RankList items={stats?.transfersOut} color="#dc2626" empty={activeGw > 1 ? "No transfers made yet this gameweek." : "Transfers start from GW2."} />
+          </StatBlock>
 
           <StatBlock title="TOP RUN SCORER" accent={C.indigo}>
             {!stats?.topScorer?.player ? noData : (
@@ -2295,7 +2368,7 @@ export default function App() {
           {page === "managers" && <ManagersPage activeGw={activeGw} />}
           {page === "teams" && <ViewTeamsPage players={players} activeGw={activeGw} transfersOpen={transfersOpen} />}
           {page === "history" && <HistoryPage userId={session.user.id} />}
-          {page === "stats" && <StatsPage players={players} />}
+          {page === "stats" && <StatsPage players={players} activeGw={activeGw} />}
           {page === "howtoplay" && <HowToPlayPage />}
           {page === "account" && <AccountPage user={session.user} profile={profile} onLogout={handleLogout} />}
           {page === "admin" && session.user.id === ADMIN_ID && <AdminPage players={players} activeGw={activeGw} setActiveGw={setActiveGw} transfersOpen={transfersOpen} setTransfersOpen={setTransfersOpen} />}
