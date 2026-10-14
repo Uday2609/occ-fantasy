@@ -1788,7 +1788,7 @@ function StatsPage({ players, activeGw }) {
         const [scoresRes, ptsRes, squadRes, curRes, prevRes] = await Promise.all([
           supabase.from("gameweek_scores").select("player_id, runs, wickets, calculated_pts, gameweek_id"),
           supabase.from("fantasy_points").select("user_id, total_pts, gameweek_id, profiles(team_name, first_name, last_name)"),
-          supabase.from("squads").select("player_id"),
+          supabase.from("squads").select("user_id, player_id").eq("gameweek_id", activeGw),
           activeGw > 1 ? supabase.from("squads").select("user_id, player_id").eq("gameweek_id", activeGw) : Promise.resolve({ data: [] }),
           activeGw > 1 ? supabase.from("squads").select("user_id, player_id").eq("gameweek_id", activeGw - 1) : Promise.resolve({ data: [] }),
         ]);
@@ -1819,7 +1819,8 @@ function StatsPage({ players, activeGw }) {
         const bestFantasy = Object.values(userPts).sort((a, b) => b.pts - a.pts)[0] || null;
 
         const pickCounts = {};
-        squadData.forEach(s => { pickCounts[s.player_id] = (pickCounts[s.player_id] || 0) + 1; });
+        const seenPick = new Set(); // one count per manager per player
+        squadData.forEach(s => { const k = s.user_id + ":" + s.player_id; if (seenPick.has(k)) return; seenPick.add(k); pickCounts[s.player_id] = (pickCounts[s.player_id] || 0) + 1; });
         const topPicked = Object.entries(pickCounts)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
@@ -1973,7 +1974,7 @@ function StatsPage({ players, activeGw }) {
             )}
           </StatBlock>
 
-          <StatBlock title="MOST PICKED PLAYERS" accent={C.success}>
+          <StatBlock title={`MOST PICKED PLAYERS · GW${activeGw}`} accent={C.success}>
             {!stats?.topPicked?.length ? noData : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {stats.topPicked.map(({ player, count }, i) => (
