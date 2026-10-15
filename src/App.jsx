@@ -38,7 +38,7 @@ const C = {
 const ROLE_LABELS = { BAT: "Batter", BOWL: "Bowler", AR: "All-rounder", WK: "Keeper" };
 const ROLE_COLORS = { BAT: "#4f46e5", BOWL: "#ca8a04", AR: "#16a34a", WK: "#ea580c" };
 const BUDGET = 1000;
-const ROLE_LIMITS = { BAT: 5, BOWL: 5, AR: 4, WK: 3 };
+const ROLE_LIMITS = { BAT: 5, BOWL: 5, AR: 5, WK: 3 };
 const SQUAD_SIZE = 15;
 const TRANSFERS_PER_GW = 4;
 const MAX_MARQUEE = 3;
@@ -79,7 +79,7 @@ const SCORING = [
 const RULES = [
   { title: "Squad size", desc: "Select 15 players. All 15 score points every gameweek. No bench." },
   { title: "Budget", desc: "You have $1,000 credits to build your squad. Spend wisely." },
-  { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 4 All-rounders, Max 3 Keepers." },
+  { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 5 All-rounders, Max 3 Keepers." },
   { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
   { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. Each additional transfer beyond 4 costs -10 points from your GW score." },
