@@ -40,7 +40,26 @@ const ROLE_COLORS = { BAT: "#4f46e5", BOWL: "#ca8a04", AR: "#16a34a", WK: "#ea58
 const BUDGET = 1000;
 const ROLE_LIMITS = { BAT: 5, BOWL: 5, AR: 5, WK: 3 };
 const SQUAD_SIZE = 15;
-const TRANSFERS_PER_GW = 4;
+const TRANSFERS_PER_GW = 4;      // base free transfers each GW
+const TRANSFER_ROLLOVER = 2;     // added next GW if no transfers made
+const MAX_FREE_TRANSFERS = 8;    // rollover cap
+
+// Free transfers available in activeGw, from the manager's squads in earlier GWs.
+// rows: [{ gameweek_id, player_id }]. Returns null if they had no squad last GW (first squad is free).
+function computeFreeTransfers(rows, activeGw) {
+  const byGw = {};
+  rows.forEach(r => { (byGw[r.gameweek_id] = byGw[r.gameweek_id] || new Set()).add(r.player_id); });
+  if (!byGw[activeGw - 1]) return null;
+  let free = TRANSFERS_PER_GW;
+  for (let g = 1; g < activeGw; g++) {
+    const cur = byGw[g], prev = byGw[g - 1];
+    if (!cur) continue;
+    if (!prev) { free = TRANSFERS_PER_GW; continue; } // first squad: base allowance next GW
+    const used = [...cur].filter(p => !prev.has(p)).length;
+    free = used === 0 ? Math.min(MAX_FREE_TRANSFERS, free + TRANSFER_ROLLOVER) : TRANSFERS_PER_GW;
+  }
+  return free;
+}
 const MAX_MARQUEE = 3;
 
 // Transfer deadlines, 9 AM Melbourne time on match day.
@@ -82,7 +101,7 @@ const RULES = [
   { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 5 All-rounders, Max 3 Keepers." },
   { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
-  { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. Each additional transfer beyond 4 costs -10 points from your GW score." },
+  { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. If you make no transfers in a gameweek, you get 2 extra free transfers the next week, up to a maximum of 8. Making any transfer resets you to 4 the following week. Each transfer beyond your free ones costs -10 points from your GW score." },
   { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 10 October). Late transfers are not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
@@ -653,6 +672,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [soldGains, setSoldGains] = useState(0);
   const [transfersUsed, setTransfersUsed] = useState(0);
   const [firstSquad, setFirstSquad] = useState(false); // no squad last GW = new manager, first squad is free
+  const [freeTransfers, setFreeTransfers] = useState(TRANSFERS_PER_GW);
   const [showGwBreakdown, setShowGwBreakdown] = useState(false);
   const [gwBreakdown, setGwBreakdown] = useState([]);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
@@ -704,9 +724,11 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       if (gwRes.data) { setDeadline(gwRes.data.deadline); }
       // New manager (no squad last GW): first squad is free, no transfer limit
       if (activeGw > 1) {
-        const { data: prevAny } = await supabase.from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", activeGw - 1).limit(1);
-        setFirstSquad(!prevAny || prevAny.length === 0);
-      } else setFirstSquad(false);
+        const { data: history } = await supabase.from("squads").select("gameweek_id, player_id").eq("user_id", userId).lt("gameweek_id", activeGw);
+        const ft = computeFreeTransfers(history || [], activeGw);
+        setFirstSquad(ft === null);
+        setFreeTransfers(ft ?? TRANSFERS_PER_GW);
+      } else { setFirstSquad(false); setFreeTransfers(TRANSFERS_PER_GW); }
       // This gameweek's fixtures and team selections (tables may not exist yet: ignore errors)
       try {
         const [{ data: fx }, { data: sel }] = await Promise.all([
@@ -843,10 +865,10 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       if (prevSquad && prevSquad.length > 0) {
         const prevIds = new Set(prevSquad.map(r => r.player_id));
         const transfersIn = squad.filter(p => !prevIds.has(p.id)).length;
-        if (transfersIn > TRANSFERS_PER_GW) {
-          const extra = transfersIn - TRANSFERS_PER_GW;
+        if (transfersIn > freeTransfers) {
+          const extra = transfersIn - freeTransfers;
           const penalty = extra * 10;
-          const confirmed = window.confirm(`You have made ${transfersIn} transfers this gameweek.\n\n${TRANSFERS_PER_GW} are free. The ${extra} extra transfer${extra > 1 ? "s" : ""} will cost you ${penalty} point${penalty > 1 ? "s" : ""}.\n\nClick OK to confirm and save your squad.`);
+          const confirmed = window.confirm(`You have made ${transfersIn} transfers this gameweek.\n\n${freeTransfers} are free. The ${extra} extra transfer${extra > 1 ? "s" : ""} will cost you ${penalty} point${penalty > 1 ? "s" : ""}.\n\nClick OK to confirm and save your squad.`);
           if (!confirmed) return;
         }
       }
@@ -869,7 +891,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         // Count players in new squad that weren't in previous squad = transfers in
         const transfersIn = [...newIds].filter(id => !prevIds.has(id)).length;
         transfersUsed = transfersIn;
-        const extraTransfers = Math.max(0, transfersIn - TRANSFERS_PER_GW);
+        const extraTransfers = Math.max(0, transfersIn - freeTransfers);
         transferPenalty = extraTransfers * 10;
       }
     }
@@ -901,9 +923,9 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         );
       }
       if (transferPenalty > 0) {
-        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfers used, ${transfersUsed - TRANSFERS_PER_GW} extra (-${transferPenalty}pts penalty).`);
+        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfers used, ${transfersUsed - freeTransfers} extra (-${transferPenalty}pts penalty).`);
       } else if (activeGw > 1 && transfersUsed > 0) {
-        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfer${transfersUsed > 1 ? "s" : ""} used, ${TRANSFERS_PER_GW - transfersUsed} free remaining.`);
+        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfer${transfersUsed > 1 ? "s" : ""} used, ${freeTransfers - transfersUsed} free remaining.`);
       } else {
         setSaveMsg("✓ Squad saved successfully!");
       }
@@ -1040,7 +1062,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : "#888"],
             ["Value", `$${squadValue}`, "#111111"],
             ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : "#888"],
-            ["Xfers", (activeGw === 1 || firstSquad) ? "Free" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left`, (activeGw === 1 || firstSquad) ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : C.success],
+            ["Xfers", (activeGw === 1 || firstSquad) ? "Free" : `${Math.max(0, freeTransfers - transfersUsed)} left`, (activeGw === 1 || firstSquad) ? C.success : transfersUsed > freeTransfers ? C.danger : C.success],
             ["C", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "-", "#4B0082"],
             ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "-", "#888"],
           ].map(([l, v, a]) => (
@@ -1197,7 +1219,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               ["Value gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
               ["Players", `${squad.length} / ${SQUAD_SIZE}`, "#111111"],
               ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : "#111111"],
-              ["Transfers", (activeGw === 1 || firstSquad) ? "Unlimited" : `${Math.max(0, TRANSFERS_PER_GW - transfersUsed)} left${transfersUsed > TRANSFERS_PER_GW ? ` (-${(transfersUsed - TRANSFERS_PER_GW) * 10}pts)` : ""}`, (activeGw === 1 || firstSquad) ? C.success : transfersUsed > TRANSFERS_PER_GW ? C.danger : transfersOpen ? C.success : C.gray],
+              ["Transfers", (activeGw === 1 || firstSquad) ? "Unlimited" : `${Math.max(0, freeTransfers - transfersUsed)} left${transfersUsed > freeTransfers ? ` (-${(transfersUsed - freeTransfers) * 10}pts)` : ""}`, (activeGw === 1 || firstSquad) ? C.success : transfersUsed > freeTransfers ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                 <span style={{ fontSize: 12, color: "#888888" }}>{l}</span>
