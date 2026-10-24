@@ -45,8 +45,9 @@ const TRANSFER_ROLLOVER = 2;     // added next GW if no transfers made
 const MAX_FREE_TRANSFERS = 8;    // rollover cap
 
 // Free transfers available in activeGw, from the manager's squads in earlier GWs.
-// rows: [{ gameweek_id, player_id }]. Returns null if they had no squad last GW (first squad is free).
-function computeFreeTransfers(rows, activeGw) {
+// rows: [{ gameweek_id, player_id }]. swaps: admin replacements [{ gameweek_id, new_player_id }], not counted as transfers.
+// Returns null if they had no squad last GW (first squad is free).
+function computeFreeTransfers(rows, activeGw, swaps = []) {
   const byGw = {};
   rows.forEach(r => { (byGw[r.gameweek_id] = byGw[r.gameweek_id] || new Set()).add(r.player_id); });
   if (!byGw[activeGw - 1]) return null;
@@ -55,7 +56,8 @@ function computeFreeTransfers(rows, activeGw) {
     const cur = byGw[g], prev = byGw[g - 1];
     if (!cur) continue;
     if (!prev) { free = TRANSFERS_PER_GW; continue; } // first squad: base allowance next GW
-    const used = [...cur].filter(p => !prev.has(p)).length;
+    const adminIn = new Set(swaps.filter(x => x.gameweek_id === g).map(x => x.new_player_id));
+    const used = [...cur].filter(p => !prev.has(p) && !adminIn.has(p)).length;
     free = used === 0 ? Math.min(MAX_FREE_TRANSFERS, free + TRANSFER_ROLLOVER) : TRANSFERS_PER_GW;
   }
   return free;
@@ -725,7 +727,9 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       // New manager (no squad last GW): first squad is free, no transfer limit
       if (activeGw > 1) {
         const { data: history } = await supabase.from("squads").select("gameweek_id, player_id").eq("user_id", userId).lt("gameweek_id", activeGw);
-        const ft = computeFreeTransfers(history || [], activeGw);
+        let swaps = [];
+        try { const { data: sw } = await supabase.from("admin_swaps").select("gameweek_id, new_player_id").eq("user_id", userId); swaps = sw || []; } catch (e) { /* table may not exist */ }
+        const ft = computeFreeTransfers(history || [], activeGw, swaps);
         setFirstSquad(ft === null);
         setFreeTransfers(ft ?? TRANSFERS_PER_GW);
       } else { setFirstSquad(false); setFreeTransfers(TRANSFERS_PER_GW); }
