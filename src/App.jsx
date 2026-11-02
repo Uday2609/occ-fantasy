@@ -48,7 +48,7 @@ const MAX_FREE_TRANSFERS = 8;    // rollover cap
 // One of each per season, one chip per gameweek.
 const CHIPS = {
   triple_captain: { label: "Triple Captain", short: "TC", desc: "Your captain scores 3x instead of 2x this gameweek. The chip is used when you save your squad. After that you can still change who your captain is until the deadline.", cancellable: true, beforeSave: false },
-  player_boost:   { label: "Player Boost",   short: "PB", desc: "Pick one player who isn't your captain or vice-captain. Their points are doubled this gameweek. The chip is used when you save your squad. After that you can still change the boosted player until the deadline.", cancellable: true, beforeSave: false },
+  player_boost:   { label: "Player Boost",   short: "PB", desc: "Pick one player who isn't your captain or vice-captain. Their points are doubled this gameweek. The chip is used when you save your squad, and your boosted player is then locked in. A boosted player can't be your captain or vice-captain.", cancellable: true, beforeSave: false },
   free_hit:       { label: "Free Hit",       short: "FH", desc: "Unlimited free transfers for this gameweek only. Next gameweek your squad goes back to what it was before. The chip is only used when you save your squad.", cancellable: true, beforeSave: true },
   wildcard:       { label: "Wildcard",       short: "WC", desc: "Unlimited free transfers, and the changes are permanent. The chip is only used when you save your squad.", cancellable: true, beforeSave: true },
 };
@@ -141,7 +141,7 @@ const RULES = [
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
   { title: "Saving your squad", desc: "You get one squad save per gameweek and it's final. Once you tap Save Squad, your players are locked until the next gameweek. Only your captain and vice-captain can still be changed." },
   { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. If you make no transfers in a gameweek, you get 2 extra free transfers the next week, up to a maximum of 8. Making any transfer resets you to 4 the following week. Each transfer beyond your free ones costs -10 points from your GW score." },
-  { title: "Chips", desc: "You get four chips, each usable once per season, and only one per gameweek. Triple Captain: your captain scores 3x. Player Boost: one player (not C or VC) scores 2x. Free Hit: unlimited transfers for one week, then your squad goes back. Wildcard: unlimited transfers that stick. Chips can only be selected before you save your squad, and a chip is only used when you save. If you leave without saving, it stays available. Once saved, it can't be cancelled. With Triple Captain or Player Boost you can still change your captain or boosted player until the deadline." },
+  { title: "Chips", desc: "You get four chips, each usable once per season, and only one per gameweek. Triple Captain: your captain scores 3x. Player Boost: one player (not C or VC) scores 2x. Free Hit: unlimited transfers for one week, then your squad goes back. Wildcard: unlimited transfers that stick. Chips can only be selected before you save your squad, and a chip is only used when you save. If you leave without saving, it stays available. Once saved, it can't be cancelled. With Triple Captain you can still change your captain until the deadline. With Player Boost, your boosted player is locked in once you save." },
   { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 10 October). Late transfers are not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
@@ -1018,6 +1018,11 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     setSaveMsg("✓ Captain and vice-captain saved.");
   };
   const setLeader = (kind, id) => {
+    if (activeChip?.chip === "player_boost" && activeChip.boost_player_id === id && !(kind === "C" ? captain === id : viceCaptain === id)) {
+      setSaveMsg("This player has your Player Boost, so they can't be captain or vice-captain.");
+      setCaptainMenu(null); setLeaderSheet(null);
+      return;
+    }
     let c = captain, vc = viceCaptain;
     if (kind === "C") { c = captain === id ? null : id; if (vc === id) vc = null; }
     else { vc = viceCaptain === id ? null : id; if (c === id) c = null; }
@@ -1073,13 +1078,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       setSaveMsg("Boost player changed.");
       return;
     }
-    setChipBusy(true);
-    const { error } = await supabase.from("chips").update({ boost_player_id: boostPick }).eq("user_id", userId).eq("chip", "player_boost");
-    setChipBusy(false);
-    if (error) { setChipMsg("Couldn't change your boost player. Try again."); return; }
-    setMyChips(cs => cs.map(c => c.chip === "player_boost" ? { ...c, boost_player_id: boostPick } : c));
-    setChipSheet(null);
-    setSaveMsg("✓ Boost player changed.");
+    setChipMsg("Your squad is saved, so your boosted player is locked in.");
   };
   const profileModal = profilePlayer && (
     <PlayerProfileModal player={profilePlayer} onClose={() => setProfilePlayer(null)}
@@ -1185,12 +1184,12 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     else if (st.state === "available" && activeChip) note = `You've already played ${CHIPS[activeChip.chip].label} this gameweek. Only one chip per gameweek.`;
     else if (st.state === "available" && savedThisGw) note = `Chips can only be played before you save your squad, and you've already saved for GW${activeGw}. You can use it in a later gameweek.`;
     else if (st.state === "selected") note = "Selected, but not used yet. It's only used when you save your squad. If you leave without saving, it stays available.";
-    else if (st.state === "active") note = key === "player_boost" ? "Your squad is saved, so this chip is used. You can still change which player gets the boost until the deadline." : key === "triple_captain" ? "Your squad is saved, so this chip is used. You can still change your captain until the deadline." : "Your squad is saved, so this chip is locked in.";
+    else if (st.state === "active") note = key === "player_boost" ? `Your squad is saved, so this chip is used and your boosted player is locked in: ${players.find(x => x.id === st.used.boost_player_id)?.name || ""}.` : key === "triple_captain" ? "Your squad is saved, so this chip is used. You can still change your captain until the deadline." : "Your squad is saved, so this chip is locked in.";
     return (
       bottomSheet(def.label, () => setChipSheet(null), <>
         <div style={{ fontSize: 14, color: "#444444", lineHeight: 1.5, marginBottom: 12 }}>{def.desc}</div>
         {st.state === "available" && !savedThisGw && windowOpen && <div style={{ fontSize: 13, color: "#92400e", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>Select this before you save your squad. It's used when you confirm your save, and can't be cancelled after that.</div>}
-        {key === "player_boost" && ((st.state === "available" && !savedThisGw) || st.state === "active" || st.state === "selected") && windowOpen && (
+        {key === "player_boost" && ((st.state === "available" && !savedThisGw) || st.state === "selected") && windowOpen && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888888", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Choose a player</div>
             {boostOptions.length === 0 ? <div style={{ fontSize: 13, color: "#888888" }}>Add players to your squad first.</div> : (
@@ -1210,7 +1209,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {chipMsg && <div style={{ fontSize: 13, color: "#dc2626", marginBottom: 10 }}>{chipMsg}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {canActivate(key) && sheetBtn(chipBusy ? "Playing..." : `Select ${def.label}`, () => activateChip(key), "primary", chipBusy)}
-          {key === "player_boost" && (st.state === "active" || st.state === "selected") && windowOpen && boostPick !== st.used.boost_player_id && sheetBtn(chipBusy ? "Saving..." : "Change boost player", changeBoost, "primary", chipBusy)}
+          {key === "player_boost" && st.state === "selected" && windowOpen && boostPick !== st.used.boost_player_id && sheetBtn(chipBusy ? "Saving..." : "Change boost player", changeBoost, "primary", chipBusy)}
           {canCancel(key) && sheetBtn(`Deselect ${def.label}`, () => cancelChip(key), "danger")}
           {sheetBtn("Close", () => setChipSheet(null), "secondary")}
         </div>
