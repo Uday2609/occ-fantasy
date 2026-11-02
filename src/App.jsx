@@ -44,24 +44,60 @@ const TRANSFERS_PER_GW = 4;      // base free transfers each GW
 const TRANSFER_ROLLOVER = 2;     // added next GW if no transfers made
 const MAX_FREE_TRANSFERS = 8;    // rollover cap
 
+// --- CHIPS ---
+// One of each per season, one chip per gameweek.
+const CHIPS = {
+  triple_captain: { label: "Triple Captain", short: "TC", desc: "Your captain scores 3x instead of 2x this gameweek.", cancellable: true, beforeSave: false },
+  player_boost:   { label: "Player Boost",   short: "PB", desc: "Pick one player who isn't your captain or vice-captain. Their points are doubled this gameweek.", cancellable: true, beforeSave: false },
+  free_hit:       { label: "Free Hit",       short: "FH", desc: "Unlimited free transfers for this gameweek only. Next gameweek your squad goes back to what it was before.", cancellable: true, beforeSave: true },
+  wildcard:       { label: "Wildcard",       short: "WC", desc: "Unlimited free transfers, and the changes are permanent. Once played it can't be cancelled.", cancellable: false, beforeSave: true },
+};
+const CHIP_ORDER = ["triple_captain", "player_boost", "free_hit", "wildcard"];
+const UNLIMITED_CHIPS = ["wildcard", "free_hit"];
+
+// Points multiplier for one squad row, given that manager's chip for the GW (or null).
+// Player Boost never stacks with C/VC: it only applies to a player who is neither.
+function playerMultiplier(entry, chip) {
+  if (entry.is_captain) return chip?.chip === "triple_captain" ? 3 : 2;
+  if (entry.is_vice_captain) return 1.5;
+  if (chip?.chip === "player_boost" && chip.boost_player_id === entry.player_id) return 2;
+  return 1;
+}
+
+// Which earlier GW a squad's transfers are counted against. After a Free Hit in gw-1,
+// the squad reverted to gw-2's, so that's the comparison point.
+function prevGwFor(gw, chips = []) {
+  const fhPrev = chips.some(c => c.chip === "free_hit" && c.gameweek_id === gw - 1);
+  return fhPrev && gw - 2 >= 1 ? gw - 2 : gw - 1;
+}
+
 // Free transfers available in activeGw, from the manager's squads in earlier GWs.
 // rows: [{ gameweek_id, player_id }]. swaps: admin replacements [{ gameweek_id, new_player_id }], not counted as transfers.
+// chips: [{ gameweek_id, chip }]. A Wildcard/Free Hit week keeps the banked number unchanged.
 // Returns null if they had no squad last GW (first squad is free).
-function computeFreeTransfers(rows, activeGw, swaps = []) {
+function computeFreeTransfers(rows, activeGw, swaps = [], chips = []) {
   const byGw = {};
   rows.forEach(r => { (byGw[r.gameweek_id] = byGw[r.gameweek_id] || new Set()).add(r.player_id); });
   if (!byGw[activeGw - 1]) return null;
   let free = TRANSFERS_PER_GW;
   for (let g = 1; g < activeGw; g++) {
-    const cur = byGw[g], prev = byGw[g - 1];
+    const cur = byGw[g], prev = byGw[prevGwFor(g, chips)];
     if (!cur) continue;
     if (!prev) { free = TRANSFERS_PER_GW; continue; } // first squad: base allowance next GW
+    if (chips.some(c => c.gameweek_id === g && UNLIMITED_CHIPS.includes(c.chip))) continue; // chip week: banked transfers kept
     const adminIn = new Set(swaps.filter(x => x.gameweek_id === g).map(x => x.new_player_id));
     const used = [...cur].filter(p => !prev.has(p) && !adminIn.has(p)).length;
     free = used === 0 ? Math.min(MAX_FREE_TRANSFERS, free + TRANSFER_ROLLOVER) : TRANSFERS_PER_GW;
   }
   return free;
 }
+
+// Small chip tag (TC / PB / FH / WC) for leaderboards
+function ChipTag({ chip }) {
+  if (!chip || !CHIPS[chip]) return null;
+  return <span title={CHIPS[chip].label} style={{ display: "inline-block", marginLeft: 6, padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 800, letterSpacing: 0.5, background: "#4B0082", color: "#ffffff", verticalAlign: "middle" }}>{CHIPS[chip].short}</span>;
+}
+
 const MAX_MARQUEE = 3;
 
 // Transfer deadlines, 9 AM Melbourne time on match day.
@@ -101,9 +137,11 @@ const RULES = [
   { title: "Squad size", desc: "Select 15 players. All 15 score points every gameweek. No bench." },
   { title: "Budget", desc: "You have $1,000 credits to build your squad. Spend wisely." },
   { title: "Role limits", desc: "Max 5 Batters, Max 5 Bowlers, Max 5 All-rounders, Max 3 Keepers." },
-  { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek." },
+  { title: "Captain & VC", desc: "Pick a captain (2x points) and vice captain (1.5x) each gameweek. You can change them any time before the deadline, even after saving your squad." },
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
+  { title: "Saving your squad", desc: "You get one squad save per gameweek and it's final. Once you tap Save Squad, your players are locked until the next gameweek. Only your captain and vice-captain can still be changed." },
   { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. If you make no transfers in a gameweek, you get 2 extra free transfers the next week, up to a maximum of 8. Making any transfer resets you to 4 the following week. Each transfer beyond your free ones costs -10 points from your GW score." },
+  { title: "Chips", desc: "You get four chips, each usable once per season, and only one per gameweek. Triple Captain: your captain scores 3x. Player Boost: one player (not C or VC) scores 2x. Free Hit: unlimited transfers for one week, then your squad goes back. Wildcard: unlimited transfers that stick. Free Hit and Wildcard must be played before you save your squad. Triple Captain and Player Boost can be played or cancelled up to the deadline. A Wildcard can't be cancelled." },
   { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 10 October). Late transfers are not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
@@ -680,6 +718,13 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
   // FIX 3: snapshot of last saved squad so user can reset unsaved changes
   const [savedSnapshot, setSavedSnapshot] = useState({ squad: [], captain: null, viceCaptain: null });
+  const [myChips, setMyChips] = useState([]);            // this manager's chips, all GWs
+  const [savedThisGw, setSavedThisGw] = useState(false); // one save per GW: true = players locked
+  const [chipSheet, setChipSheet] = useState(null);      // chip key whose sheet is open
+  const [boostPick, setBoostPick] = useState(null);      // player chosen in the Player Boost sheet
+  const [chipBusy, setChipBusy] = useState(false);
+  const [chipMsg, setChipMsg] = useState("");
+  const [confirmSave, setConfirmSave] = useState(null);  // { transfersIn, penalty } while the confirm sheet is open
 
   useEffect(() => {
     const loadAll = async () => {
@@ -696,6 +741,16 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         supabase.from("fantasy_points").select("total_pts").eq("user_id", userId).eq("gameweek_id", sGw).maybeSingle(),
         supabase.from("fantasy_points").select("total_pts").eq("gameweek_id", sGw),
       ]);
+      // Chips and this GW's save record (tables may not exist before the SQL is run)
+      let chipsList = [], savedRow = null;
+      try {
+        const [{ data: ch }, { data: sv }] = await Promise.all([
+          supabase.from("chips").select("chip, gameweek_id, boost_player_id").eq("user_id", userId),
+          supabase.from("squad_saves").select("saved_at").eq("user_id", userId).eq("gameweek_id", activeGw).maybeSingle(),
+        ]);
+        chipsList = ch || []; savedRow = sv || null;
+      } catch (e) { /* not set up yet */ }
+      setMyChips(chipsList); setSavedThisGw(!!savedRow);
       if (squadRes.data && squadRes.data.length > 0) {
         // Merge purchase_price from squads table into each player object
         const purchaseMap = {};
@@ -715,7 +770,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         // Calculate how many transfers used this GW (compare vs prev GW squad)
         if (activeGw > 1) {
           const { data: prevSquad } = await supabase
-            .from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", activeGw - 1);
+            .from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", prevGwFor(activeGw, chipsList));
           if (prevSquad && prevSquad.length > 0) {
             const prevIds = new Set(prevSquad.map(r => r.player_id));
             const used = squadRes.data.filter(r => !prevIds.has(r.player_id)).length;
@@ -729,7 +784,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         const { data: history } = await supabase.from("squads").select("gameweek_id, player_id").eq("user_id", userId).lt("gameweek_id", activeGw);
         let swaps = [];
         try { const { data: sw } = await supabase.from("admin_swaps").select("gameweek_id, new_player_id").eq("user_id", userId); swaps = sw || []; } catch (e) { /* table may not exist */ }
-        const ft = computeFreeTransfers(history || [], activeGw, swaps);
+        const ft = computeFreeTransfers(history || [], activeGw, swaps, chipsList);
         setFirstSquad(ft === null);
         setFreeTransfers(ft ?? TRANSFERS_PER_GW);
       } else { setFirstSquad(false); setFreeTransfers(TRANSFERS_PER_GW); }
@@ -754,7 +809,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       // Autosave: restore any unsaved squad from this browser tab (survives tab switches and page reloads,
       // cleared when the site is closed, since sessionStorage is per-tab)
       try {
-        const raw = sessionStorage.getItem(`occ_draft_${userId}_${activeGw}`);
+        const raw = savedRow ? null : sessionStorage.getItem(`occ_draft_${userId}_${activeGw}`);
         if (raw) {
           const d = JSON.parse(raw);
           const restored = (d.squad || [])
@@ -780,11 +835,12 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (squadData && scoreData) {
       const scoreMap = {};
       scoreData.forEach(s => { scoreMap[s.player_id] = s.calculated_pts || 0; });
+      const gwChip = myChips.find(c => c.gameweek_id === scoreGw) || null;
       const breakdown = squadData.map(entry => {
         const player = players.find(p => p.id === entry.player_id);
         let pts = scoreMap[entry.player_id] || 0;
-        const multiplier = entry.is_captain ? 2 : entry.is_vice_captain ? 1.5 : 1;
-        return { player, basePts: pts, finalPts: Math.round(pts * multiplier), isCaptain: entry.is_captain, isVC: entry.is_vice_captain };
+        const multiplier = playerMultiplier(entry, gwChip);
+        return { player, basePts: pts, finalPts: Math.round(pts * multiplier * 10) / 10, isCaptain: entry.is_captain, isVC: entry.is_vice_captain, mult: multiplier, isBoost: !entry.is_captain && !entry.is_vice_captain && multiplier === 2 };
       }).sort((a, b) => b.finalPts - a.finalPts);
       setGwBreakdown(breakdown);
     }
@@ -858,49 +914,37 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (captain === id) setCaptain(null); setViceCaptain(id);
   };
 
+  // Transfers vs the previous squad, and the penalty they'd cost. Wildcard/Free Hit = no penalty.
+  const countTransfers = async () => {
+    if (activeGw === 1) return { transfersIn: 0, penalty: 0 };
+    const { data: prevSquad } = await supabase.from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", prevGwFor(activeGw, myChips));
+    if (!prevSquad || prevSquad.length === 0) return { transfersIn: 0, penalty: 0 }; // first squad is free
+    const prevIds = new Set(prevSquad.map(r => r.player_id));
+    const transfersIn = squad.filter(p => !prevIds.has(p.id)).length;
+    const chipNow = myChips.find(c => c.gameweek_id === activeGw);
+    const penalty = chipNow && UNLIMITED_CHIPS.includes(chipNow.chip) ? 0 : Math.max(0, transfersIn - freeTransfers) * 10;
+    return { transfersIn, penalty };
+  };
+
+  // Step 1: validate, then open the confirmation sheet
   const saveSquad = async () => {
+    setSaveMsg("");
     if (deadline && new Date(deadline).getTime() <= Date.now()) { setSaveMsg("The deadline has passed. Squads are locked for this gameweek."); return; }
+    if (savedThisGw) { setSaveMsg("You've already saved your squad for this gameweek."); return; }
     if (squad.length !== SQUAD_SIZE) { setSaveMsg(`Need ${SQUAD_SIZE} players. You have ${squad.length}.`); return; }
     if (!captain) { setSaveMsg("Please assign a captain."); return; }
     if (!viceCaptain) { setSaveMsg("Please assign a vice captain."); return; }
-    // Warn about transfer penalty before saving
-    if (activeGw > 1) {
-      const { data: prevSquad } = await supabase.from("squads").select("player_id").eq("user_id", userId).eq("gameweek_id", activeGw - 1);
-      if (prevSquad && prevSquad.length > 0) {
-        const prevIds = new Set(prevSquad.map(r => r.player_id));
-        const transfersIn = squad.filter(p => !prevIds.has(p.id)).length;
-        if (transfersIn > freeTransfers) {
-          const extra = transfersIn - freeTransfers;
-          const penalty = extra * 10;
-          const confirmed = window.confirm(`You have made ${transfersIn} transfers this gameweek.\n\n${freeTransfers} are free. The ${extra} extra transfer${extra > 1 ? "s" : ""} will cost you ${penalty} point${penalty > 1 ? "s" : ""}.\n\nClick OK to confirm and save your squad.`);
-          if (!confirmed) return;
-        }
-      }
-    }
-    setSaving(true); setSaveMsg("");
+    setSaving(true);
+    const t = await countTransfers();
+    setSaving(false);
+    setConfirmSave(t);
+  };
 
-    // Count transfers vs previous GW (only enforced from GW2 onwards)
-    let transferPenalty = 0;
-    let transfersUsed = 0;
-    if (activeGw > 1) {
-      const { data: prevSquad } = await supabase
-        .from("squads")
-        .select("player_id, purchase_price")
-        .eq("user_id", userId)
-        .eq("gameweek_id", activeGw - 1);
+  // Step 2: confirmed, write the squad and lock it
+  const doSaveSquad = async () => {
+    const { transfersIn, penalty } = confirmSave || { transfersIn: 0, penalty: 0 };
+    setConfirmSave(null); setSaving(true); setSaveMsg("");
 
-      if (prevSquad && prevSquad.length > 0) {
-        const prevIds = new Set(prevSquad.map(r => r.player_id));
-        const newIds = new Set(squad.map(p => p.id));
-        // Count players in new squad that weren't in previous squad = transfers in
-        const transfersIn = [...newIds].filter(id => !prevIds.has(id)).length;
-        transfersUsed = transfersIn;
-        const extraTransfers = Math.max(0, transfersIn - freeTransfers);
-        transferPenalty = extraTransfers * 10;
-      }
-    }
-
-    // Save the squad
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", activeGw);
     const { error } = await supabase.from("squads").insert(squad.map(p => ({
       user_id: userId,
@@ -914,32 +958,109 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (error) {
       setSaveMsg("Error saving squad. Try again.");
     } else {
+      // Mark this GW as saved: the database blocks any further player changes
+      await supabase.from("squad_saves").insert({ user_id: userId, gameweek_id: activeGw });
+      setSavedThisGw(true);
       setSquadSavedInDb(true);
-      setUserHasSaved(true); // close window for this user
-      setTransfersUsed(transfersUsed);
-      setSavedSnapshot({ squad: [...squad], captain, viceCaptain }); // update snapshot to new saved state
+      setUserHasSaved(true);
+      setTransfersUsed(transfersIn);
+      setSavedSnapshot({ squad: [...squad], captain, viceCaptain });
       try { sessionStorage.removeItem(`occ_draft_${userId}_${activeGw}`); } catch (e) { /* ignore */ }
       // Store the penalty in fantasy_points so Calculate Points can apply it
       if (activeGw > 1) {
         await supabase.from("fantasy_points").upsert(
-          { user_id: userId, gameweek_id: activeGw, transfer_penalty: transferPenalty, raw_pts: 0, total_pts: 0 },
+          { user_id: userId, gameweek_id: activeGw, transfer_penalty: penalty, raw_pts: 0, total_pts: 0 },
           { onConflict: "user_id,gameweek_id" }
         );
       }
-      if (transferPenalty > 0) {
-        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfers used, ${transfersUsed - freeTransfers} extra (-${transferPenalty}pts penalty).`);
-      } else if (activeGw > 1 && transfersUsed > 0) {
-        setSaveMsg(`✓ Squad saved! ${transfersUsed} transfer${transfersUsed > 1 ? "s" : ""} used, ${freeTransfers - transfersUsed} free remaining.`);
-      } else {
-        setSaveMsg("✓ Squad saved successfully!");
-      }
+      setSaveMsg(penalty > 0
+        ? `✓ Squad saved and locked. ${transfersIn} transfers (-${penalty} pts).`
+        : `✓ Squad saved and locked for GW${activeGw}.`);
     }
     setSaving(false);
   };
 
   const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
   const [profilePlayer, setProfilePlayer] = useState(null);
-  const squadLocked = deadlinePassed || (hasSquad && activeGw !== 1 && !transfersOpen);
+  const windowOpen = !deadlinePassed && (activeGw === 1 || transfersOpen);
+  const playersLocked = !windowOpen || savedThisGw;   // one save per GW
+  const squadLocked = !windowOpen;                    // C/VC stay editable until the deadline
+  const activeChip = myChips.find(c => c.gameweek_id === activeGw) || null;
+  const unlimitedTransfers = activeGw === 1 || firstSquad || (activeChip && UNLIMITED_CHIPS.includes(activeChip.chip));
+  const lockMessage = deadlinePassed ? "Deadline passed. Squads are locked for this gameweek."
+    : !windowOpen ? "Transfer window closed. It opens after the round."
+    : `Squad saved for GW${activeGw}. Players are locked, but you can still change your captain and vice-captain until the deadline.`;
+
+  // C/VC: if the players match what's saved in the database, changes save instantly
+  const idsOf = arr => JSON.stringify(arr.map(p => p.id).sort());
+  const persistLeaders = async (c, vc) => {
+    const r1 = await supabase.from("squads").update({ is_captain: false, is_vice_captain: false }).eq("user_id", userId).eq("gameweek_id", activeGw);
+    const r2 = await supabase.from("squads").update({ is_captain: true }).eq("user_id", userId).eq("gameweek_id", activeGw).eq("player_id", c);
+    const r3 = await supabase.from("squads").update({ is_vice_captain: true }).eq("user_id", userId).eq("gameweek_id", activeGw).eq("player_id", vc);
+    if (r1.error || r2.error || r3.error) { setSaveMsg("Couldn't save your captain change. Try again."); return; }
+    setSavedSnapshot(sn => ({ ...sn, captain: c, viceCaptain: vc }));
+    setSaveMsg("✓ Captain and vice-captain saved.");
+  };
+  const setLeader = (kind, id) => {
+    let c = captain, vc = viceCaptain;
+    if (kind === "C") { c = captain === id ? null : id; if (vc === id) vc = null; }
+    else { vc = viceCaptain === id ? null : id; if (c === id) c = null; }
+    setCaptain(c); setViceCaptain(vc); setCaptainMenu(null);
+    const matchesDb = savedSnapshot.squad.length > 0 && idsOf(squad) === idsOf(savedSnapshot.squad);
+    if (matchesDb) {
+      if (c && vc) persistLeaders(c, vc);
+      else setSaveMsg("Pick a new " + (c ? "vice-captain" : "captain") + " to save the change.");
+    }
+    if (activeChip?.chip === "player_boost" && (activeChip.boost_player_id === c || activeChip.boost_player_id === vc)) {
+      setChipMsg("Your Player Boost player is now C or VC, so the boost won't apply. Change your boost player.");
+    }
+  };
+
+  // Chips
+  const chipStatus = (key) => {
+    const used = myChips.find(c => c.chip === key);
+    if (used && used.gameweek_id === activeGw) return { state: "active", used };
+    if (used) return { state: "used", used };
+    return { state: "available" };
+  };
+  const canActivate = (key) => windowOpen && !activeChip && chipStatus(key).state === "available" && !(CHIPS[key].beforeSave && savedThisGw);
+  const canCancel = (key) => windowOpen && chipStatus(key).state === "active" && CHIPS[key].cancellable && !(CHIPS[key].beforeSave && savedThisGw);
+  const openChip = (key) => {
+    setChipMsg("");
+    const st = chipStatus(key);
+    setBoostPick(st.state === "active" ? st.used.boost_player_id : null);
+    setChipSheet(key);
+  };
+  const activateChip = async (key) => {
+    if (key === "player_boost" && !boostPick) { setChipMsg("Pick a player to boost."); return; }
+    setChipBusy(true); setChipMsg("");
+    const row = { user_id: userId, chip: key, gameweek_id: activeGw, boost_player_id: key === "player_boost" ? boostPick : null };
+    const { error } = await supabase.from("chips").insert(row);
+    setChipBusy(false);
+    if (error) { setChipMsg("Couldn't play this chip. " + (isDuplicateError(error) ? "You've already used it, or another chip is active this week." : "Try again.")); return; }
+    setMyChips(cs => [...cs, row]);
+    setChipSheet(null);
+    setSaveMsg(`✓ ${CHIPS[key].label} played for GW${activeGw}.`);
+  };
+  const cancelChip = async (key) => {
+    setChipBusy(true); setChipMsg("");
+    const { error } = await supabase.from("chips").delete().eq("user_id", userId).eq("chip", key);
+    setChipBusy(false);
+    if (error) { setChipMsg("Couldn't cancel this chip. Try again."); return; }
+    setMyChips(cs => cs.filter(c => c.chip !== key));
+    setChipSheet(null);
+    setSaveMsg(`${CHIPS[key].label} cancelled.`);
+  };
+  const changeBoost = async () => {
+    if (!boostPick) { setChipMsg("Pick a player to boost."); return; }
+    setChipBusy(true); setChipMsg("");
+    const { error } = await supabase.from("chips").update({ boost_player_id: boostPick }).eq("user_id", userId).eq("chip", "player_boost");
+    setChipBusy(false);
+    if (error) { setChipMsg("Couldn't change your boost player. Try again."); return; }
+    setMyChips(cs => cs.map(c => c.chip === "player_boost" ? { ...c, boost_player_id: boostPick } : c));
+    setChipSheet(null);
+    setSaveMsg("✓ Boost player changed.");
+  };
   const profileModal = profilePlayer && (
     <PlayerProfileModal player={profilePlayer} onClose={() => setProfilePlayer(null)}
       purchasePrice={squad.find(x => x.id === profilePlayer.id)?.purchase_price ?? null}
@@ -957,6 +1078,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     const isC = captain === p.id;
     const isVC = viceCaptain === p.id;
     const menuOpen = captainMenu === p.id;
+    const isBoost = activeChip?.chip === "player_boost" && activeChip.boost_player_id === p.id;
     return (
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
         <div
@@ -966,18 +1088,18 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           <div style={{ fontSize: 8, color: ROLE_COLORS[p.role], fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.black, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
           <FixtureLine f={fixtureMap[p.id]} hasFixtures={hasFixtures} compact />
-          <div style={{ fontSize: 9, fontWeight: 700, color: isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.5)" : "transparent", marginTop: 1 }}>{isC ? "C" : isVC ? "VC" : "\u00a0"}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.5)" : isBoost ? "#15803d" : "transparent", marginTop: 1 }}>{isC ? (activeChip?.chip === "triple_captain" ? "C ×3" : "C") : isVC ? "VC" : isBoost ? "BOOST ×2" : "\u00a0"}</div>
         </div>
         {menuOpen && !squadLocked && (
           <div style={{ position: "absolute", top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 6, padding: 4, zIndex: 50, minWidth: 140, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", animation: "fadeUp 0.15s ease" }} onClick={e => e.stopPropagation()}>
             <button
-              onClick={() => { setCaptain(isC ? null : p.id); if (viceCaptain === p.id) setViceCaptain(null); setCaptainMenu(null); }}
+              onClick={() => setLeader("C", p.id)}
               style={{ display: "block", width: "100%", padding: "8px 10px", background: isC ? "#eeeeee" : "transparent", border: "none", borderRadius: 5, color: isC ? "#4B0082" : "#111111", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
             >
-              {isC ? "✓ " : ""} Captain (2x)
+              {isC ? "✓ " : ""} Captain ({activeChip?.chip === "triple_captain" ? "3x" : "2x"})
             </button>
             <button
-              onClick={() => { setViceCaptain(isVC ? null : p.id); if (captain === p.id) setCaptain(null); setCaptainMenu(null); }}
+              onClick={() => setLeader("VC", p.id)}
               style={{ display: "block", width: "100%", padding: "8px 10px", background: isVC ? C.gray + "20" : "transparent", border: "none", borderRadius: 5, color: isVC ? "#4B0082" : "#111111", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
             >
               {isVC ? "✓ " : ""} Vice Captain (1.5x)
@@ -994,6 +1116,115 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     );
   };
 
+  // ─── CHIPS UI (shared by mobile + desktop) ─────────────────────────────────
+  const chipButton = (key, compact) => {
+    const st = chipStatus(key);
+    const active = st.state === "active", used = st.state === "used";
+    const blockedByOther = !active && !used && activeChip;
+    return (
+      <button key={key} onClick={() => openChip(key)}
+        style={{ flex: 1, minWidth: 0, minHeight: compact ? 52 : 58, padding: compact ? "6px 4px" : "8px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
+          border: `1.5px solid ${active ? "#4B0082" : "#e5e5e5"}`, background: active ? "#4B0082" : used ? "#f5f5f5" : "#ffffff",
+          opacity: blockedByOther ? 0.55 : 1 }}>
+        <div style={{ fontSize: compact ? 11 : 12, fontWeight: 800, lineHeight: 1.15, color: active ? "#ffffff" : used ? "#aaaaaa" : "#111111" }}>{CHIPS[key].label}</div>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, marginTop: 3, textTransform: "uppercase", color: active ? "rgba(255,255,255,0.8)" : used ? "#aaaaaa" : "#15803d" }}>
+          {active ? "Active" : used ? `Used GW${st.used.gameweek_id}` : "Available"}
+        </div>
+      </button>
+    );
+  };
+  const chipBar = (compact) => (
+    <div style={{ display: "flex", gap: 6 }}>{CHIP_ORDER.map(k => chipButton(k, compact))}</div>
+  );
+
+  const sheetBtn = (label, onClick, kind = "primary", disabled = false) => (
+    <button onClick={onClick} disabled={disabled} style={{ width: "100%", minHeight: 48, borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: disabled ? "default" : "pointer",
+      border: kind === "primary" ? "none" : kind === "danger" ? "1px solid #fecaca" : "1px solid #e5e5e5",
+      background: disabled ? "#eeeeee" : kind === "primary" ? "#4B0082" : kind === "danger" ? "#fef2f2" : "#ffffff",
+      color: disabled ? "#999999" : kind === "primary" ? "#ffffff" : kind === "danger" ? "#dc2626" : "#111111" }}>{label}</button>
+  );
+  const bottomSheet = (title, onClose, children) => (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto", background: "#ffffff", borderRadius: "16px 16px 0 0", padding: "10px 20px calc(20px + env(safe-area-inset-bottom))", animation: "slideUp 0.2s ease" }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: "#dddddd", margin: "0 auto 14px" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>{title}</div>
+          <button onClick={onClose} aria-label="Close" style={{ width: 36, height: 36, border: "none", background: "#f5f5f5", borderRadius: "50%", fontSize: 18, color: "#555555", cursor: "pointer" }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+
+  const chipSheetEl = chipSheet && (() => {
+    const key = chipSheet, def = CHIPS[key], st = chipStatus(key);
+    const boostOptions = squad.filter(p => p.id !== captain && p.id !== viceCaptain);
+    let note = null;
+    if (st.state === "used") note = `You played this chip in GW${st.used.gameweek_id}. Each chip can be used once per season.`;
+    else if (!windowOpen) note = "The transfer window is closed, so chips can't be played or cancelled right now.";
+    else if (st.state === "available" && activeChip) note = `You've already played ${CHIPS[activeChip.chip].label} this gameweek. Only one chip per gameweek.`;
+    else if (st.state === "available" && def.beforeSave && savedThisGw) note = `${def.label} has to be played before you save your squad, and you've already saved for GW${activeGw}.`;
+    else if (st.state === "active" && !def.cancellable) note = "Your Wildcard is active for this gameweek. It can't be cancelled.";
+    else if (st.state === "active" && def.beforeSave && savedThisGw) note = "Your squad is saved, so this chip is locked in.";
+    return (
+      bottomSheet(def.label, () => setChipSheet(null), <>
+        <div style={{ fontSize: 14, color: "#444444", lineHeight: 1.5, marginBottom: 12 }}>{def.desc}</div>
+        {key === "wildcard" && st.state === "available" && <div style={{ fontSize: 13, color: "#92400e", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>Once you play your Wildcard you can't cancel it, even before saving.</div>}
+        {key === "player_boost" && (st.state === "available" || st.state === "active") && windowOpen && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888888", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Choose a player</div>
+            {boostOptions.length === 0 ? <div style={{ fontSize: 13, color: "#888888" }}>Add players to your squad first.</div> : (
+              <div style={{ border: "1px solid #eeeeee", borderRadius: 10, overflow: "hidden" }}>
+                {boostOptions.map((p, i) => (
+                  <button key={p.id} onClick={() => setBoostPick(p.id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 48, padding: "8px 12px", border: "none", borderBottom: i < boostOptions.length - 1 ? "1px solid #f0f0f0" : "none", background: boostPick === p.id ? "#f3e8ff" : "#ffffff", cursor: "pointer", textAlign: "left" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${boostPick === p.id ? "#4B0082" : "#cccccc"}`, background: boostPick === p.id ? "#4B0082" : "#ffffff", flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#111111" }}>{p.name}</span>
+                    <RoleBadge role={p.role} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {note && <div style={{ fontSize: 13, color: "#555555", background: "#f5f5f5", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>{note}</div>}
+        {chipMsg && <div style={{ fontSize: 13, color: "#dc2626", marginBottom: 10 }}>{chipMsg}</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {canActivate(key) && sheetBtn(chipBusy ? "Playing..." : `Play ${def.label}`, () => activateChip(key), "primary", chipBusy)}
+          {key === "player_boost" && st.state === "active" && windowOpen && boostPick !== st.used.boost_player_id && sheetBtn(chipBusy ? "Saving..." : "Change boost player", changeBoost, "primary", chipBusy)}
+          {canCancel(key) && sheetBtn(chipBusy ? "Cancelling..." : `Cancel ${def.label}`, () => cancelChip(key), "danger", chipBusy)}
+          {sheetBtn("Close", () => setChipSheet(null), "secondary")}
+        </div>
+      </>)
+    );
+  })();
+
+  const confirmSheetEl = confirmSave && bottomSheet(`Lock in your GW${activeGw} squad?`, () => setConfirmSave(null), <>
+      <div style={{ fontSize: 14, color: "#444444", lineHeight: 1.5, marginBottom: 12 }}>
+        This is your only save for GW{activeGw}. After you confirm, your players are locked until next gameweek. You can still change your captain and vice-captain until the deadline.
+      </div>
+      <div style={{ border: "1px solid #eeeeee", borderRadius: 10, padding: "4px 12px", marginBottom: 14 }}>
+        {[
+          ["Captain", squad.find(x => x.id === captain)?.name || "-"],
+          ["Vice-captain", squad.find(x => x.id === viceCaptain)?.name || "-"],
+          ...(activeChip ? [["Chip", CHIPS[activeChip.chip].label]] : []),
+          ...(activeGw > 1 && !firstSquad ? [["Transfers", unlimitedTransfers ? `${confirmSave.transfersIn} (unlimited this week)` : `${confirmSave.transfersIn} of ${freeTransfers} free`]] : []),
+        ].map(([l, v]) => (
+          <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #f5f5f5", fontSize: 14 }}>
+            <span style={{ color: "#888888" }}>{l}</span><span style={{ fontWeight: 700, color: "#111111", textAlign: "right" }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      {confirmSave.penalty > 0 && (
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
+          {confirmSave.transfersIn - freeTransfers} extra transfer{confirmSave.transfersIn - freeTransfers > 1 ? "s" : ""}: -{confirmSave.penalty} points
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {sheetBtn("Confirm and lock squad", doSaveSquad)}
+        {sheetBtn("Go back", () => setConfirmSave(null), "secondary")}
+      </div>
+    </>);
+
   if (loadingSquad) return <Spinner label="Loading your squad..." />;
 
   const isMobile = window.innerWidth < 768;
@@ -1001,7 +1232,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   // ─── MOBILE LAYOUT ───────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ paddingTop: 52, paddingBottom: 0, height: "100dvh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ paddingTop: 52, paddingBottom: "calc(56px + env(safe-area-inset-bottom))", height: "100dvh", background: C.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Score strip - compact single row */}
         <div style={{ background: "linear-gradient(150deg, #56129B 0%, #4B0082 55%, #3A0068 100%)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -1026,8 +1257,11 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           </div>
         </div>
 
+        {/* Chips */}
+        <div style={{ padding: "8px 8px", background: "#ffffff", borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>{chipBar(true)}</div>
+
         {/* Pitch */}
-        <div style={{ background: "repeating-linear-gradient(180deg, #014421 0px, #014421 44px, #025229 44px, #025229 88px)", flex: 1, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
+        <div style={{ background: "repeating-linear-gradient(180deg, #014421 0px, #014421 44px, #025229 44px, #025229 88px)", flex: 1, minHeight: 0, padding: "8px 8px 4px", display: "flex", flexDirection: "column", gap: 0, position: "relative", overflow: "hidden" }} onClick={() => setCaptainMenu(null)}>
           <div style={{ fontSize: 7, color: "rgba(0,0,0,0.25)", fontWeight: 700, letterSpacing: 3, textAlign: "center", marginBottom: 4, textTransform: "uppercase" }}>{squadLocked ? "TAP A PLAYER FOR INFO" : "TAP TO SET C / VC"}</div>
           {squad.length === 0 ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1066,7 +1300,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             ["Budget", remaining >= 0 ? `+$${remaining}` : `-$${Math.abs(remaining)}`, remaining > 0 ? C.success : remaining < 0 ? C.danger : "#888"],
             ["Value", `$${squadValue}`, "#111111"],
             ["Gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : "#888"],
-            ["Xfers", (activeGw === 1 || firstSquad) ? "Free" : `${Math.max(0, freeTransfers - transfersUsed)} left`, (activeGw === 1 || firstSquad) ? C.success : transfersUsed > freeTransfers ? C.danger : C.success],
+            ["Xfers", unlimitedTransfers ? "Free" : `${Math.max(0, freeTransfers - transfersUsed)} left`, unlimitedTransfers ? C.success : transfersUsed > freeTransfers ? C.danger : C.success],
             ["C", squad.find(x => x.id === captain)?.name?.split(" ").pop() || "-", "#4B0082"],
             ["VC", squad.find(x => x.id === viceCaptain)?.name?.split(" ").pop() || "-", "#888"],
           ].map(([l, v, a]) => (
@@ -1079,13 +1313,13 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
         {/* Action buttons */}
         <div style={{ padding: "10px 16px 12px", background: "#ffffff", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
-          {deadlinePassed || (hasSquad && !(activeGw === 1) && !transfersOpen) ? (
-            <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>{deadlinePassed ? "Deadline passed. Squads are locked for this gameweek." : "Transfer window closed. It opens after the round."}</div>
+          {playersLocked ? (
+            <div style={{ padding: "12px", background: savedThisGw && windowOpen ? "#f0fdf4" : "#fff8e1", border: `1px solid ${savedThisGw && windowOpen ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6, fontSize: 13, color: savedThisGw && windowOpen ? "#15803d" : "#92400e", textAlign: "center", lineHeight: 1.4 }}>{lockMessage}</div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setShowPicker(true)} style={{ flex: 1, padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
-                <button onClick={saveSquad} disabled={saving} style={{ flex: 1, padding: "12px", background: saving ? "#eeeeee" : "#111111", color: saving ? "#888" : "#ffffff", border: "none", borderRadius: 3, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
+                <button onClick={() => setShowPicker(true)} style={{ flex: 1, minHeight: 48, padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
+                <button onClick={saveSquad} disabled={saving} style={{ flex: 1, minHeight: 48, padding: "12px", background: saving ? "#eeeeee" : "#4B0082", color: saving ? "#888" : "#ffffff", border: "none", borderRadius: 3, cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Save Squad"}</button>
               </div>
               {savedSnapshot.squad.length > 0 && JSON.stringify(squad.map(p=>p.id).sort()) !== JSON.stringify(savedSnapshot.squad.map(p=>p.id).sort()) && <button onClick={resetSquad} style={{ width: "100%", padding: "9px", background: "#fff", color: "#555555", border: "1px solid #e5e5e5", borderRadius: 3, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>↩ Reset to last saved squad</button>}
             </div>
@@ -1139,19 +1373,23 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
 
         {/* GW breakdown modal */}
         {profileModal}
+        {chipSheetEl}
+        {confirmSheetEl}
         {showGwBreakdown && (
           <Modal title={`GW${activeGw} Breakdown`} onClose={() => setShowGwBreakdown(false)}>
             {loadingBreakdown ? <Spinner label="Loading..." /> : gwBreakdown.length === 0
               ? <div style={{ textAlign: "center", color: C.gray, padding: "20px 0" }}>No scores yet.</div>
               : (
                 <div>
-                  {gwBreakdown.map(({ player, basePts, finalPts, isCaptain, isVC }) => (
+                  {gwBreakdown.map(({ player, basePts, finalPts, isCaptain, isVC, mult, isBoost }) => (
                     <div key={player?.id} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px", padding: "9px 0", borderBottom: `1px solid ${C.border}`, alignItems: "center" }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 500, color: C.black, display: "flex", alignItems: "center", gap: 5 }}>
                           {player?.name}
-                          {isCaptain && <span style={{ background: C.black, color: C.black, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>C</span>}
+                          {isCaptain && <span style={{ background: "#111111", color: "#ffffff", borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>C</span>}
                           {isVC && <span style={{ background: C.blackLt + "40", color: C.blackLt, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>VC</span>}
+                          {isCaptain && mult === 3 && <span style={{ background: "#4B0082", color: "#ffffff", borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>TC ×3</span>}
+                          {isBoost && <span style={{ background: "#15803d", color: "#ffffff", borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>BOOST ×2</span>}
                         </div>
                       </div>
                       <span style={{ textAlign: "right", fontSize: 13, color: "#888888" }}>{basePts}</span>
@@ -1160,7 +1398,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                   ))}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 0" }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: C.black }}>Total</span>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: C.black }}>{gwBreakdown.reduce((s, r) => s + r.finalPts, 0)}</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: C.black }}>{Math.round(gwBreakdown.reduce((s, r) => s + r.finalPts, 0))}</span>
                   </div>
                 </div>
               )}
@@ -1223,7 +1461,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
               ["Value gain", valueGain >= 0 ? `+$${valueGain}` : `-$${Math.abs(valueGain)}`, valueGain > 0 ? C.success : valueGain < 0 ? C.danger : C.gray],
               ["Players", `${squad.length} / ${SQUAD_SIZE}`, "#111111"],
               ["Marquee", `${marqueeCount} / ${MAX_MARQUEE}`, marqueeCount >= MAX_MARQUEE ? C.danger : "#111111"],
-              ["Transfers", (activeGw === 1 || firstSquad) ? "Unlimited" : `${Math.max(0, freeTransfers - transfersUsed)} left${transfersUsed > freeTransfers ? ` (-${(transfersUsed - freeTransfers) * 10}pts)` : ""}`, (activeGw === 1 || firstSquad) ? C.success : transfersUsed > freeTransfers ? C.danger : transfersOpen ? C.success : C.gray],
+              ["Transfers", unlimitedTransfers ? "Unlimited" : `${Math.max(0, freeTransfers - transfersUsed)} left${transfersUsed > freeTransfers ? ` (-${(transfersUsed - freeTransfers) * 10}pts)` : ""}`, unlimitedTransfers ? C.success : transfersUsed > freeTransfers ? C.danger : transfersOpen ? C.success : C.gray],
             ].map(([l, v, a]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                 <span style={{ fontSize: 12, color: "#888888" }}>{l}</span>
@@ -1235,7 +1473,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
           {/* Captain / VC */}
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
             <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LEADERSHIP</div>
-            {[["Captain (2x)", captain, "#4B0082"], ["Vice Captain (1.5x)", viceCaptain, "#888888"]].map(([label, id, accent]) => {
+            {[[activeChip?.chip === "triple_captain" ? "Captain (3x)" : "Captain (2x)", captain, "#4B0082"], ["Vice Captain (1.5x)", viceCaptain, "#888888"]].map(([label, id, accent]) => {
               const p = squad.find(x => x.id === id);
               return (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -1247,12 +1485,18 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             {(!captain || !viceCaptain) && <div style={{ fontSize: 11, color: "#aaaaaa", marginTop: 4 }}>Tap a player on the pitch to set C / VC</div>}
           </div>
 
+          {/* Chips */}
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "14px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>CHIPS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>{CHIP_ORDER.map(k => chipButton(k, false))}</div>
+          </div>
+
           </div>{/* end scrollable */}
 
           {/* Buttons - always pinned to bottom */}
           <div style={{ flexShrink: 0, borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
-            {deadlinePassed || (hasSquad && !(activeGw === 1) && !transfersOpen) ? (
-              <div style={{ padding: "12px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 4, fontSize: 13, color: "#92400e", textAlign: "center" }}>{deadlinePassed ? "Deadline passed. Squads are locked for this gameweek." : "Transfer window closed. It opens after the round."}</div>
+            {playersLocked ? (
+              <div style={{ padding: "12px", background: savedThisGw && windowOpen ? "#f0fdf4" : "#fff8e1", border: `1px solid ${savedThisGw && windowOpen ? "#bbf7d0" : "#fde68a"}`, borderRadius: 6, fontSize: 13, color: savedThisGw && windowOpen ? "#15803d" : "#92400e", textAlign: "center", lineHeight: 1.4 }}>{lockMessage}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => setShowPicker(true)} style={{ padding: "12px", background: "#111111", color: "#ffffff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>+ Add / Edit Players</button>
@@ -1402,6 +1646,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       )}
 
       {profileModal}
+      {chipSheetEl}
+      {confirmSheetEl}
       {showGwBreakdown && (
         <Modal title={`GW${activeGw} Points Breakdown`} onClose={() => setShowGwBreakdown(false)}>
           {loadingBreakdown ? <Spinner label="Loading..." /> : (
@@ -1410,13 +1656,15 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 70px", padding: "7px 10px", fontSize: 9, color: "#aaaaaa", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
                   <span>PLAYER</span><span style={{ textAlign: "right" }}>BASE</span><span style={{ textAlign: "right" }}>FINAL</span>
                 </div>
-                {gwBreakdown.map(({ player, basePts, finalPts, isCaptain, isVC }) => (
+                {gwBreakdown.map(({ player, basePts, finalPts, isCaptain, isVC, mult, isBoost }) => (
                   <div key={player?.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 70px", padding: "8px 10px", borderBottom: `1px solid ${C.border}`, alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 500, color: C.black, display: "flex", alignItems: "center", gap: 6 }}>
                         {player?.name || "Unknown"}
-                        {isCaptain && <span style={{ background: C.black, color: C.black, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>C</span>}
+                        {isCaptain && <span style={{ background: "#111111", color: "#ffffff", borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>C</span>}
                         {isVC && <span style={{ background: C.blackLt + "40", color: C.blackLt, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>VC</span>}
+                          {isCaptain && mult === 3 && <span style={{ background: "#4B0082", color: "#ffffff", borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>TC ×3</span>}
+                          {isBoost && <span style={{ background: "#15803d", color: "#ffffff", borderRadius: 3, padding: "1px 4px", fontSize: 9, fontWeight: 700 }}>BOOST ×2</span>}
                       </div>
                       {player && <div style={{ marginTop: 2 }}><RoleBadge role={player.role} /></div>}
                     </div>
@@ -1426,7 +1674,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
                 ))}
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 10px 0", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: C.black }}>Total</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: C.black }}>{gwBreakdown.reduce((s, r) => s + r.finalPts, 0)}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: C.black }}>{Math.round(gwBreakdown.reduce((s, r) => s + r.finalPts, 0))}</span>
                 </div>
               </div>
             )
@@ -1582,6 +1830,7 @@ function ViewTeamsPage({ players, activeGw, transfersOpen }) {
 function ManagersPage({ activeGw }) {
   const [managers, setManagers] = useState([]);
   const [setIds, setSetIds] = useState(new Set());
+  const [savedIds, setSavedIds] = useState(new Set());
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1594,16 +1843,17 @@ function ManagersPage({ activeGw }) {
         .sort((a, b) => (a.team_name || "").localeCompare(b.team_name || "", undefined, { sensitivity: "base" }));
       setManagers(list);
       setSetIds(new Set((sq || []).map(r => r.user_id)));
+      try { const { data: sv } = await supabase.from("squad_saves").select("user_id").eq("gameweek_id", activeGw); setSavedIds(new Set((sv || []).map(r => r.user_id))); } catch (e) { /* not set up */ }
       setLoading(false);
     };
     load();
   }, [activeGw]);
   const q = search.trim().toLowerCase();
   const shown = managers.filter(p => !q || (p.team_name || "").toLowerCase().includes(q) || fullName(p).toLowerCase().includes(q));
-  const readyCount = managers.filter(p => setIds.has(p.id)).length;
+  const readyCount = managers.filter(p => savedIds.has(p.id)).length;
   return (
     <div style={{ padding: "0 clamp(16px,4vw,32px) clamp(60px,8vw,48px)", background: "#ffffff", minHeight: "100vh" }}>
-      <Header title="Managers" sub={`${managers.length} signed up · ${readyCount} squad${readyCount === 1 ? "" : "s"} set for GW${activeGw}`} />
+      <Header title="Managers" sub={`${managers.length} signed up · ${readyCount} saved for GW${activeGw}`} />
       {loading ? <Spinner label="Loading managers..." /> : (
         <div style={{ paddingTop: 20 }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search team or name"
@@ -1612,7 +1862,8 @@ function ManagersPage({ activeGw }) {
             {shown.length === 0 ? (
               <div style={{ textAlign: "center", color: "#888888", padding: "40px 0", fontSize: 13 }}>No managers found.</div>
             ) : shown.map((p, i) => {
-              const ready = setIds.has(p.id);
+              const ready = savedIds.has(p.id);
+              const carried = !ready && setIds.has(p.id);
               return (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < shown.length - 1 ? "1px solid #eeeeee" : "none" }}>
                   <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#f2f2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#111111", flexShrink: 0 }}>{(p.team_name || p.first_name || "?")[0].toUpperCase()}</div>
@@ -1620,7 +1871,7 @@ function ManagersPage({ activeGw }) {
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#111111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.team_name || "Unnamed Team"}</div>
                     <div style={{ fontSize: 11, color: "#888888" }}>{fullName(p)}</div>
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "3px 8px", borderRadius: 4, flexShrink: 0, background: ready ? "#f0fdf4" : "#f5f5f5", color: ready ? "#15803d" : "#999999", border: `1px solid ${ready ? "#bbf7d0" : "#e5e5e5"}` }}>{ready ? "SQUAD SET" : "NO SQUAD"}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "3px 8px", borderRadius: 4, flexShrink: 0, background: ready ? "#f0fdf4" : "#f5f5f5", color: ready ? "#15803d" : "#999999", border: `1px solid ${ready ? "#bbf7d0" : "#e5e5e5"}` }}>{ready ? "SAVED" : carried ? "CARRIED OVER" : "NO SQUAD"}</span>
                 </div>
               );
             })}
@@ -1636,6 +1887,7 @@ function ManagersPage({ activeGw }) {
 function LeaderboardPage() {
   const [entries, setEntries] = useState([]);
   const [latestGw, setLatestGw] = useState(null);
+  const [lbChips, setLbChips] = useState({});
   const [gwPts, setGwPts] = useState({});
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1650,6 +1902,7 @@ function LeaderboardPage() {
       const gwMap = {};
       (fp || []).filter(r => r.gameweek_id === lastGw).forEach(r => { gwMap[r.user_id] = r.total_pts; });
       setLatestGw(lastGw); setGwPts(gwMap);
+      if (lastGw) { try { const { data: ch } = await supabase.from("chips").select("user_id, chip").eq("gameweek_id", lastGw); const m = {}; (ch || []).forEach(c => { m[c.user_id] = c.chip; }); setLbChips(m); } catch (e) { /* no chips yet */ } }
       // Only managers who entered a team in a scored GW and have points
       const entered = new Set((fp || []).map(r => r.user_id));
       if (data) setEntries(data.filter(p => entered.has(p.id) && (p.total_pts || 0) > 0));
@@ -1687,7 +1940,7 @@ function LeaderboardPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.black + "20", border: `1px solid ${C.crimson}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.black, flexShrink: 0 }}>{(p.team_name || p.username || "?")[0].toUpperCase()}</div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.black }}>{p.team_name || "Unnamed Team"}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.black }}>{p.team_name || "Unnamed Team"}<ChipTag chip={lbChips[p.id]} /></div>
                     <div style={{ fontSize: 11, color: C.gray }}>{fullName(p)}</div>
                   </div>
                 </div>
@@ -1711,10 +1964,12 @@ function HistoryPage({ userId }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selGw, setSelGw] = useState(null);
+  const [chipKey, setChipKey] = useState({});
 
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from("fantasy_points").select("gameweek_id, total_pts, transfer_penalty, user_id, profiles(team_name, first_name, last_name)");
+      try { const { data: ch } = await supabase.from("chips").select("user_id, gameweek_id, chip"); const m = {}; (ch || []).forEach(c => { m[c.user_id + ":" + c.gameweek_id] = c.chip; }); setChipKey(m); } catch (e) { /* no chips yet */ }
       if (data) {
         const grouped = {};
         data.forEach(row => { (grouped[row.gameweek_id] = grouped[row.gameweek_id] || []).push(row); });
@@ -1787,7 +2042,7 @@ function HistoryPage({ userId }) {
                 <div key={e.user_id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 70px", padding: "10px 16px", borderBottom: i < cur.entries.length - 1 ? "1px solid #f3f3f3" : "none", alignItems: "center", background: mine ? "#f6f0fb" : e.rank === 1 ? "#FFFDF5" : "#ffffff" }}>
                   <span style={{ fontSize: 13, fontWeight: 800, color: e.rank <= 3 ? "#111111" : "#bbbbbb" }}>{e.rank}</span>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.profiles?.team_name || "Unnamed Team"}{mine && <span style={{ fontSize: 10, color: "#4B0082", fontWeight: 700, marginLeft: 6 }}>YOU</span>}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.profiles?.team_name || "Unnamed Team"}<ChipTag chip={chipKey[e.user_id + ":" + selGw]} />{mine && <span style={{ fontSize: 10, color: "#4B0082", fontWeight: 700, marginLeft: 6 }}>YOU</span>}</div>
                     <div style={{ fontSize: 11, color: "#888888" }}>{fullName(e.profiles)}{e.transfer_penalty > 0 && <span style={{ color: C.danger, marginLeft: fullName(e.profiles) ? 6 : 0 }}>-{e.transfer_penalty} transfer hit</span>}</div>
                   </div>
                   <span style={{ textAlign: "right", fontSize: 15, fontWeight: 800, color: "#111111" }}>{e.total_pts}</span>
@@ -1878,7 +2133,12 @@ function StatsPage({ players, activeGw }) {
           prev[uid].forEach(pid => { if (!cur[uid].has(pid)) outCounts[pid] = (outCounts[pid] || 0) + 1; });
         });
 
-        setStats({ topScorer, topWicketer, bestFantasy, topPicked, topFantasyPlayer, playerOfGw, transfersIn: top5(inCounts), transfersOut: top5(outCounts) });
+        let chipCounts = null;
+        try {
+          const { data: ch } = await supabase.from("chips").select("chip, gameweek_id");
+          chipCounts = CHIP_ORDER.map(k => ({ key: k, season: (ch || []).filter(c => c.chip === k).length, thisGw: (ch || []).filter(c => c.chip === k && c.gameweek_id === activeGw).length }));
+        } catch (e) { /* not set up */ }
+        setStats({ topScorer, topWicketer, bestFantasy, topPicked, topFantasyPlayer, playerOfGw, transfersIn: top5(inCounts), transfersOut: top5(outCounts), chipCounts });
       } catch (e) {
         setError("Failed to load stats. Please try again.");
       }
@@ -1946,6 +2206,23 @@ function StatsPage({ players, activeGw }) {
 
           <StatBlock title={`MOST TRANSFERRED IN · GW${activeGw}`} accent="#15803d">
             <RankList items={stats?.transfersIn} color="#15803d" empty={activeGw > 1 ? "No transfers made yet this gameweek." : "Transfers start from GW2."} />
+          </StatBlock>
+
+          <StatBlock title="CHIPS PLAYED" accent="#4B0082">
+            {!stats?.chipCounts ? noData : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px", fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+                  <span>Chip</span><span style={{ textAlign: "right" }}>GW{activeGw}</span><span style={{ textAlign: "right" }}>Season</span>
+                </div>
+                {stats.chipCounts.map(c => (
+                  <div key={c.key} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px", fontSize: 13, alignItems: "center" }}>
+                    <span style={{ fontWeight: 600, color: C.black }}>{CHIPS[c.key].label}</span>
+                    <span style={{ textAlign: "right", fontWeight: 700, color: "#4B0082" }}>{c.thisGw}</span>
+                    <span style={{ textAlign: "right", color: "#666666" }}>{c.season}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </StatBlock>
 
           <StatBlock title={`MOST TRANSFERRED OUT · GW${activeGw}`} accent="#dc2626">
@@ -2084,6 +2361,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
   const [search, setSearch] = useState(""); const [existingScores, setExistingScores] = useState({});
   const [togglingWindow, setTogglingWindow] = useState(false);
   const [advancing, setAdvancing] = useState(false); const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
+  const [gwChips, setGwChips] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -2092,6 +2370,10 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
         supabase.from("gameweeks").select("transfers_open").eq("number", activeGw).single(), // always read window from ACTIVE gw
       ]);
       if (scoreRes.data) { const map = {}; scoreRes.data.forEach(r => { map[r.player_id] = r; }); setExistingScores(map); setScores({}); }
+      try {
+        const { data: ch } = await supabase.from("chips").select("chip, boost_player_id, profiles(team_name)").eq("gameweek_id", gw);
+        setGwChips(ch || []);
+      } catch (e) { setGwChips([]); }
     };
     load();
   }, [gw, activeGw]);
@@ -2140,8 +2422,24 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
         .select("user_id, player_id, is_captain, is_vice_captain, purchase_price")
         .eq("gameweek_id", activeGw);
 
-      if (currentSquads && currentSquads.length > 0) {
-        const newSquadRows = currentSquads.map(s => ({
+      // Free Hit: those managers go back to the squad they had before the Free Hit
+      let fhUsers = new Set(), prevSquads = [];
+      try {
+        const { data: fh } = await supabase.from("chips").select("user_id").eq("gameweek_id", activeGw).eq("chip", "free_hit");
+        fhUsers = new Set((fh || []).map(r => r.user_id));
+        if (fhUsers.size > 0 && activeGw > 1) {
+          const { data: ps } = await supabase.from("squads").select("user_id, player_id, is_captain, is_vice_captain, purchase_price").eq("gameweek_id", activeGw - 1).in("user_id", [...fhUsers]);
+          prevSquads = ps || [];
+        }
+      } catch (e) { /* chips not set up */ }
+      const revertUsers = new Set(prevSquads.map(r => r.user_id)); // only revert if they had a squad before
+      const sourceRows = [
+        ...(currentSquads || []).filter(r => !revertUsers.has(r.user_id)),
+        ...prevSquads,
+      ];
+
+      if (sourceRows.length > 0) {
+        const newSquadRows = sourceRows.map(s => ({
           user_id: s.user_id,
           player_id: s.player_id,
           gameweek_id: nextGw,
@@ -2159,7 +2457,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
       setScores({});
       setExistingScores({});
       setTransfersOpen(false);
-      setMsg(`GW${nextGw} is now active! ${currentSquads?.length || 0} squad rows copied. Deadline set to ${nextDeadline.toLocaleString("en-AU", { timeZone: "Australia/Melbourne", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}. Open the transfer window when ready.`);
+      setMsg(`GW${nextGw} is now active! ${sourceRows.length} squad rows copied${revertUsers.size ? ` (${revertUsers.size} Free Hit squad${revertUsers.size > 1 ? "s" : ""} reverted)` : ""}. Deadline set to ${nextDeadline.toLocaleString("en-AU", { timeZone: "Australia/Melbourne", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}. Open the transfer window when ready.`);
       setMsgType("success");
     } catch (e) {
       setMsg(e.message);
@@ -2193,12 +2491,20 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
     const penaltyMap = {};
     if (penaltyData) penaltyData.forEach(r => { penaltyMap[r.user_id] = r.transfer_penalty || 0; });
 
+    // Chips played this GW (Triple Captain, Player Boost, Wildcard, Free Hit)
+    const chipMap = {};
+    try {
+      const { data: chipData } = await supabase.from("chips").select("user_id, chip, boost_player_id").eq("gameweek_id", gw);
+      (chipData || []).forEach(c => { chipMap[c.user_id] = c; });
+    } catch (e) { /* chips not set up */ }
+
     const userSquads = {};
     squadData.forEach(row => { if (!userSquads[row.user_id]) userSquads[row.user_id] = []; userSquads[row.user_id].push(row); });
     const pointsRows = Object.entries(userSquads).map(([userId, squad]) => {
       let total = 0;
-      squad.forEach(entry => { let pts = scoreMap[entry.player_id] || 0; if (entry.is_captain) pts *= 2; else if (entry.is_vice_captain) pts *= 1.5; total += pts; });
-      const penalty = penaltyMap[userId] || 0;
+      const chip = chipMap[userId] || null;
+      squad.forEach(entry => { total += (scoreMap[entry.player_id] || 0) * playerMultiplier(entry, chip); });
+      const penalty = chip && UNLIMITED_CHIPS.includes(chip.chip) ? 0 : (penaltyMap[userId] || 0);
       const finalPts = Math.max(0, Math.round(total) - penalty);
       return { user_id: userId, gameweek_id: gw, raw_pts: Math.round(total), transfer_penalty: penalty, total_pts: finalPts };
     });
@@ -2217,8 +2523,9 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
     for (const [pid, pts] of Object.entries(playerPts)) {
       await supabase.from("players").update({ pts, mp: playerMp[pid] || 0 }).eq("id", parseInt(pid));
     }
-    const penaltyUsers = Object.values(penaltyMap).filter(p => p > 0).length;
-    setMsg(`Points calculated for ${pointsRows.length} managers!${penaltyUsers > 0 ? ` Transfer penalties applied to ${penaltyUsers} manager${penaltyUsers > 1 ? "s" : ""}.` : ""}`);
+    const penaltyUsers = pointsRows.filter(r => r.transfer_penalty > 0).length;
+    const chipCount = Object.keys(chipMap).length;
+    setMsg(`Points calculated for ${pointsRows.length} managers!${penaltyUsers > 0 ? ` Transfer penalties applied to ${penaltyUsers} manager${penaltyUsers > 1 ? "s" : ""}.` : ""}${chipCount ? ` ${chipCount} chip${chipCount > 1 ? "s" : ""} applied.` : ""}`);
     setMsgType("success");
     setCalculating(false);
   };
@@ -2262,7 +2569,7 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
         <div style={{ background: C.bg, border: `1px solid ${C.indigo}40`, borderRadius: 10, padding: "16px 18px", marginBottom: 14 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.black, marginBottom: 6 }}>Advance to GW{activeGw + 1}?</div>
           <div style={{ fontSize: 13, color: "#888888", marginBottom: 14, lineHeight: 1.6 }}>
-            This will close GW{activeGw}, create GW{activeGw + 1} as the active gameweek, and copy all existing squads into the new gameweek. Make sure you have saved scores and calculated points for GW{activeGw} before advancing.
+            This will close GW{activeGw}, create GW{activeGw + 1} as the active gameweek, and copy all existing squads into the new gameweek (Free Hit squads go back to their previous squad). Make sure you have saved scores and calculated points for GW{activeGw} before advancing.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={advanceGameweek} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: C.indigo, color: C.black, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Yes, advance</button>
@@ -2271,6 +2578,19 @@ function AdminPage({ players, activeGw, setActiveGw, transfersOpen, setTransfers
         </div>
       )}
       {msg && <div style={{ marginBottom: 14, padding: "9px 14px", borderRadius: 7, fontSize: 12, background: C[msgType] + "15", color: C[msgType], border: `1px solid ${C[msgType]}30` }}>{msg}</div>}
+      <div style={{ border: "1px solid #eeeeee", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ fontSize: 9, color: "#888888", fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>CHIPS PLAYED · GW{gw}</div>
+        {gwChips.length === 0 ? <div style={{ fontSize: 12, color: "#aaaaaa" }}>No chips played this gameweek.</div> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {gwChips.map((c, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span style={{ color: "#111111", fontWeight: 600 }}>{c.profiles?.team_name || "Unnamed Team"}</span>
+                <span style={{ color: "#4B0082", fontWeight: 700 }}>{CHIPS[c.chip]?.label}{c.chip === "player_boost" && c.boost_player_id ? ` · ${players.find(p => p.id === c.boost_player_id)?.name || ""}` : ""}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {filtered.map(p => (
           <div key={p.id} style={{ background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${existingScores[p.id] ? C.success + "25" : C.border}` }}>
