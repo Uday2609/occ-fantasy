@@ -994,7 +994,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     setSaving(false);
   };
 
-  const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu
+  const [captainMenu, setCaptainMenu] = useState(null); // player id of open menu (desktop)
+  const [leaderSheet, setLeaderSheet] = useState(null);  // player whose action sheet is open (phone)
   const [profilePlayer, setProfilePlayer] = useState(null);
   const windowOpen = !deadlinePassed && (activeGw === 1 || transfersOpen);
   const playersLocked = !windowOpen || savedThisGw;   // one save per GW
@@ -1020,7 +1021,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     let c = captain, vc = viceCaptain;
     if (kind === "C") { c = captain === id ? null : id; if (vc === id) vc = null; }
     else { vc = viceCaptain === id ? null : id; if (c === id) c = null; }
-    setCaptain(c); setViceCaptain(vc); setCaptainMenu(null);
+    setCaptain(c); setViceCaptain(vc); setCaptainMenu(null); setLeaderSheet(null);
     const matchesDb = savedSnapshot.squad.length > 0 && idsOf(squad) === idsOf(savedSnapshot.squad);
     if (matchesDb) {
       if (c && vc) persistLeaders(c, vc);
@@ -1102,7 +1103,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
         <div
           style={{ background: C.bg, borderRadius: 8, padding: "10px 8px", textAlign: "center", border: `2px solid ${isC ? "#4B0082" : isVC ? "rgba(75,0,130,0.3)" : "transparent"}`, cursor: "pointer", transition: "border-color 0.15s" }}
-          onClick={e => { e.stopPropagation(); if (squadLocked) { setCaptainMenu(null); setProfilePlayer(p); } else setCaptainMenu(menuOpen ? null : p.id); }}
+          onClick={e => { e.stopPropagation(); if (squadLocked) { setCaptainMenu(null); setProfilePlayer(p); } else if (window.innerWidth < 768) setLeaderSheet(p); else setCaptainMenu(menuOpen ? null : p.id); }}
         >
           <div style={{ fontSize: 8, color: ROLE_COLORS[p.role], fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>{({ BAT: "BAT", BOWL: "BOWL", AR: "AR", WK: "WK" })[p.role]}</div>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.black, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
@@ -1215,6 +1216,22 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         </div>
       </>)
     );
+  })();
+
+  const leaderSheetEl = leaderSheet && (() => {
+    const p = leaderSheet, isC = captain === p.id, isVC = viceCaptain === p.id;
+    const tc = activeChip?.chip === "triple_captain";
+    return bottomSheet(p.name, () => setLeaderSheet(null), <>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <RoleBadge role={p.role} />
+        <span style={{ fontSize: 13, color: "#888888" }}>{isC ? "Your captain" : isVC ? "Your vice-captain" : ""}</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {sheetBtn(isC ? "✓ Captain (tap to remove)" : `Make captain (${tc ? "3x" : "2x"})`, () => setLeader("C", p.id), isC ? "secondary" : "primary")}
+        {sheetBtn(isVC ? "✓ Vice-captain (tap to remove)" : "Make vice-captain (1.5x)", () => setLeader("VC", p.id), isVC ? "secondary" : "primary")}
+        {sheetBtn("Player info", () => { setLeaderSheet(null); setProfilePlayer(p); }, "secondary")}
+      </div>
+    </>);
   })();
 
   const confirmSheetEl = confirmSave && bottomSheet(`Lock in your GW${activeGw} squad?`, () => setConfirmSave(null), <>
@@ -1394,6 +1411,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {profileModal}
         {chipSheetEl}
         {confirmSheetEl}
+        {leaderSheetEl}
         {showGwBreakdown && (
           <Modal title={`GW${activeGw} Breakdown`} onClose={() => setShowGwBreakdown(false)}>
             {loadingBreakdown ? <Spinner label="Loading..." /> : gwBreakdown.length === 0
