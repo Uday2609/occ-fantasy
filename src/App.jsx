@@ -47,10 +47,10 @@ const MAX_FREE_TRANSFERS = 8;    // rollover cap
 // --- CHIPS ---
 // One of each per season, one chip per gameweek.
 const CHIPS = {
-  triple_captain: { label: "Triple Captain", short: "TC", desc: "Your captain scores 3x instead of 2x this gameweek.", cancellable: true, beforeSave: false },
-  player_boost:   { label: "Player Boost",   short: "PB", desc: "Pick one player who isn't your captain or vice-captain. Their points are doubled this gameweek.", cancellable: true, beforeSave: false },
-  free_hit:       { label: "Free Hit",       short: "FH", desc: "Unlimited free transfers for this gameweek only. Next gameweek your squad goes back to what it was before.", cancellable: true, beforeSave: true },
-  wildcard:       { label: "Wildcard",       short: "WC", desc: "Unlimited free transfers, and the changes are permanent. Once played it can't be cancelled.", cancellable: false, beforeSave: true },
+  triple_captain: { label: "Triple Captain", short: "TC", desc: "Your captain scores 3x instead of 2x this gameweek. The chip is used when you save your squad. After that you can still change who your captain is until the deadline.", cancellable: true, beforeSave: false },
+  player_boost:   { label: "Player Boost",   short: "PB", desc: "Pick one player who isn't your captain or vice-captain. Their points are doubled this gameweek. The chip is used when you save your squad. After that you can still change the boosted player until the deadline.", cancellable: true, beforeSave: false },
+  free_hit:       { label: "Free Hit",       short: "FH", desc: "Unlimited free transfers for this gameweek only. Next gameweek your squad goes back to what it was before. The chip is only used when you save your squad.", cancellable: true, beforeSave: true },
+  wildcard:       { label: "Wildcard",       short: "WC", desc: "Unlimited free transfers, and the changes are permanent. The chip is only used when you save your squad.", cancellable: true, beforeSave: true },
 };
 const CHIP_ORDER = ["triple_captain", "player_boost", "free_hit", "wildcard"];
 const UNLIMITED_CHIPS = ["wildcard", "free_hit"];
@@ -141,7 +141,7 @@ const RULES = [
   { title: "Marquee cap", desc: "Maximum 3 marquee players (priced $100+) per squad." },
   { title: "Saving your squad", desc: "You get one squad save per gameweek and it's final. Once you tap Save Squad, your players are locked until the next gameweek. Only your captain and vice-captain can still be changed." },
   { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. If you make no transfers in a gameweek, you get 2 extra free transfers the next week, up to a maximum of 8. Making any transfer resets you to 4 the following week. Each transfer beyond your free ones costs -10 points from your GW score." },
-  { title: "Chips", desc: "You get four chips, each usable once per season, and only one per gameweek. Triple Captain: your captain scores 3x. Player Boost: one player (not C or VC) scores 2x. Free Hit: unlimited transfers for one week, then your squad goes back. Wildcard: unlimited transfers that stick. Free Hit and Wildcard must be played before you save your squad. Triple Captain and Player Boost can be played or cancelled up to the deadline. A Wildcard can't be cancelled." },
+  { title: "Chips", desc: "You get four chips, each usable once per season, and only one per gameweek. Triple Captain: your captain scores 3x. Player Boost: one player (not C or VC) scores 2x. Free Hit: unlimited transfers for one week, then your squad goes back. Wildcard: unlimited transfers that stick. Chips can only be selected before you save your squad, and a chip is only used when you save. If you leave without saving, it stays available. Once saved, it can't be cancelled. With Triple Captain or Player Boost you can still change your captain or boosted player until the deadline." },
   { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 10 October). Late transfers are not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
@@ -718,7 +718,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
   // FIX 3: snapshot of last saved squad so user can reset unsaved changes
   const [savedSnapshot, setSavedSnapshot] = useState({ squad: [], captain: null, viceCaptain: null });
-  const [myChips, setMyChips] = useState([]);            // this manager's chips, all GWs
+  const [myChips, setMyChips] = useState([]);            // this manager's chips saved in the DB, all GWs
+  const [pendingChip, setPendingChip] = useState(null);  // chip picked this GW but not saved yet: { chip, boost_player_id }
   const [savedThisGw, setSavedThisGw] = useState(false); // one save per GW: true = players locked
   const [chipSheet, setChipSheet] = useState(null);      // chip key whose sheet is open
   const [boostPick, setBoostPick] = useState(null);      // player chosen in the Player Boost sheet
@@ -821,6 +822,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
             setViceCaptain(d.viceCaptain ?? null);
             setSoldGains(d.soldGains || 0);
           }
+          if (d.pendingChip && !chipsList.some(c => c.gameweek_id === activeGw || c.chip === d.pendingChip.chip)) setPendingChip(d.pendingChip);
         }
       } catch (e) { /* storage unavailable: ignore */ }
       setLoadingSquad(false);
@@ -872,21 +874,22 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (loadingSquad) return;
     const key = `occ_draft_${userId}_${activeGw}`;
     const ids = arr => JSON.stringify(arr.map(p => p.id).sort());
-    const dirty = ids(squad) !== ids(savedSnapshot.squad) || captain !== savedSnapshot.captain || viceCaptain !== savedSnapshot.viceCaptain;
+    const dirty = ids(squad) !== ids(savedSnapshot.squad) || captain !== savedSnapshot.captain || viceCaptain !== savedSnapshot.viceCaptain || !!pendingChip;
     try {
       if (dirty && squad.length > 0) {
         sessionStorage.setItem(key, JSON.stringify({
           squad: squad.map(p => ({ id: p.id, purchase_price: p.purchase_price ?? p.price })),
-          captain, viceCaptain, soldGains,
+          captain, viceCaptain, soldGains, pendingChip,
         }));
       } else {
         sessionStorage.removeItem(key);
       }
     } catch (e) { /* storage unavailable: ignore */ }
-  }, [squad, captain, viceCaptain, soldGains, savedSnapshot, loadingSquad, userId, activeGw]);
+  }, [squad, captain, viceCaptain, soldGains, savedSnapshot, loadingSquad, userId, activeGw, pendingChip]);
 
   const resetSquad = () => {
     if (savedSnapshot.squad.length === 0) return;
+    setPendingChip(null);
     setSquad([...savedSnapshot.squad]);
     setCaptain(savedSnapshot.captain);
     setViceCaptain(savedSnapshot.viceCaptain);
@@ -921,7 +924,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (!prevSquad || prevSquad.length === 0) return { transfersIn: 0, penalty: 0 }; // first squad is free
     const prevIds = new Set(prevSquad.map(r => r.player_id));
     const transfersIn = squad.filter(p => !prevIds.has(p.id)).length;
-    const chipNow = myChips.find(c => c.gameweek_id === activeGw);
+    const chipNow = activeChip; // includes a selected (not yet saved) Wildcard / Free Hit
     const penalty = chipNow && UNLIMITED_CHIPS.includes(chipNow.chip) ? 0 : Math.max(0, transfersIn - freeTransfers) * 10;
     return { transfersIn, penalty };
   };
@@ -944,6 +947,17 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const doSaveSquad = async () => {
     const { transfersIn, penalty } = confirmSave || { transfersIn: 0, penalty: 0 };
     setConfirmSave(null); setSaving(true); setSaveMsg("");
+
+    if (pendingChip) {
+      const chipRow = { user_id: userId, chip: pendingChip.chip, gameweek_id: activeGw, boost_player_id: pendingChip.boost_player_id };
+      const { error: chipErr } = await supabase.from("chips").insert(chipRow);
+      if (chipErr) {
+        setSaveMsg(`Couldn't use your ${CHIPS[pendingChip.chip].label}. Squad not saved. Try again.`);
+        setSaving(false); return;
+      }
+      setMyChips(cs => [...cs, chipRow]);
+      setPendingChip(null);
+    }
 
     await supabase.from("squads").delete().eq("user_id", userId).eq("gameweek_id", activeGw);
     const { error } = await supabase.from("squads").insert(squad.map(p => ({
@@ -985,7 +999,8 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   const windowOpen = !deadlinePassed && (activeGw === 1 || transfersOpen);
   const playersLocked = !windowOpen || savedThisGw;   // one save per GW
   const squadLocked = !windowOpen;                    // C/VC stay editable until the deadline
-  const activeChip = myChips.find(c => c.gameweek_id === activeGw) || null;
+  const savedChip = myChips.find(c => c.gameweek_id === activeGw) || null;
+  const activeChip = savedChip || (pendingChip ? { ...pendingChip, gameweek_id: activeGw, pending: true } : null);
   const unlimitedTransfers = activeGw === 1 || firstSquad || (activeChip && UNLIMITED_CHIPS.includes(activeChip.chip));
   const lockMessage = deadlinePassed ? "Deadline passed. Squads are locked for this gameweek."
     : !windowOpen ? "Transfer window closed. It opens after the round."
@@ -1016,44 +1031,48 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     }
   };
 
-  // Chips
+  // Chips. Before the squad is saved a chip is only "selected" (kept in this browser).
+  // It becomes used when Save Squad is confirmed. Leave without saving and it stays available.
+  // After saving, Triple Captain / Player Boost can still be played, and are used straight away.
   const chipStatus = (key) => {
     const used = myChips.find(c => c.chip === key);
     if (used && used.gameweek_id === activeGw) return { state: "active", used };
     if (used) return { state: "used", used };
+    if (pendingChip?.chip === key) return { state: "selected", used: { ...pendingChip, gameweek_id: activeGw } };
     return { state: "available" };
   };
-  const canActivate = (key) => windowOpen && !activeChip && chipStatus(key).state === "available" && !(CHIPS[key].beforeSave && savedThisGw);
-  const canCancel = (key) => windowOpen && chipStatus(key).state === "active" && CHIPS[key].cancellable && !(CHIPS[key].beforeSave && savedThisGw);
+  const canActivate = (key) => windowOpen && !activeChip && chipStatus(key).state === "available" && !savedThisGw; // chips only before saving
+  const canCancel = (key) => windowOpen && chipStatus(key).state === "selected";
   const openChip = (key) => {
     setChipMsg("");
     const st = chipStatus(key);
-    setBoostPick(st.state === "active" ? st.used.boost_player_id : null);
+    setBoostPick(st.used && st.used.gameweek_id === activeGw ? st.used.boost_player_id : null);
     setChipSheet(key);
   };
   const activateChip = async (key) => {
     if (key === "player_boost" && !boostPick) { setChipMsg("Pick a player to boost."); return; }
-    setChipBusy(true); setChipMsg("");
-    const row = { user_id: userId, chip: key, gameweek_id: activeGw, boost_player_id: key === "player_boost" ? boostPick : null };
-    const { error } = await supabase.from("chips").insert(row);
-    setChipBusy(false);
-    if (error) { setChipMsg("Couldn't play this chip. " + (isDuplicateError(error) ? "You've already used it, or another chip is active this week." : "Try again.")); return; }
-    setMyChips(cs => [...cs, row]);
+    setChipMsg("");
+    if (savedThisGw) { setChipMsg("Chips can only be played before you save your squad."); return; }
+    setPendingChip({ chip: key, boost_player_id: key === "player_boost" ? boostPick : null });
     setChipSheet(null);
-    setSaveMsg(`✓ ${CHIPS[key].label} played for GW${activeGw}.`);
+    setSaveMsg(`${CHIPS[key].label} selected. It's only used once you save your squad.`);
   };
-  const cancelChip = async (key) => {
-    setChipBusy(true); setChipMsg("");
-    const { error } = await supabase.from("chips").delete().eq("user_id", userId).eq("chip", key);
-    setChipBusy(false);
-    if (error) { setChipMsg("Couldn't cancel this chip. Try again."); return; }
-    setMyChips(cs => cs.filter(c => c.chip !== key));
+  const cancelChip = (key) => {
+    if (pendingChip?.chip !== key) return;
+    setPendingChip(null);
     setChipSheet(null);
-    setSaveMsg(`${CHIPS[key].label} cancelled.`);
+    setSaveMsg(`${CHIPS[key].label} deselected. It's still available.`);
   };
   const changeBoost = async () => {
     if (!boostPick) { setChipMsg("Pick a player to boost."); return; }
-    setChipBusy(true); setChipMsg("");
+    setChipMsg("");
+    if (pendingChip?.chip === "player_boost") {
+      setPendingChip({ chip: "player_boost", boost_player_id: boostPick });
+      setChipSheet(null);
+      setSaveMsg("Boost player changed.");
+      return;
+    }
+    setChipBusy(true);
     const { error } = await supabase.from("chips").update({ boost_player_id: boostPick }).eq("user_id", userId).eq("chip", "player_boost");
     setChipBusy(false);
     if (error) { setChipMsg("Couldn't change your boost player. Try again."); return; }
@@ -1119,16 +1138,16 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
   // ─── CHIPS UI (shared by mobile + desktop) ─────────────────────────────────
   const chipButton = (key, compact) => {
     const st = chipStatus(key);
-    const active = st.state === "active", used = st.state === "used";
-    const blockedByOther = !active && !used && activeChip;
+    const active = st.state === "active", used = st.state === "used", selected = st.state === "selected";
+    const blockedByOther = !active && !used && !selected && activeChip;
     return (
       <button key={key} onClick={() => openChip(key)}
         style={{ flex: 1, minWidth: 0, minHeight: compact ? 52 : 58, padding: compact ? "6px 4px" : "8px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
-          border: `1.5px solid ${active ? "#4B0082" : "#e5e5e5"}`, background: active ? "#4B0082" : used ? "#f5f5f5" : "#ffffff",
+          border: `1.5px solid ${active || selected ? "#4B0082" : "#e5e5e5"}`, background: active ? "#4B0082" : selected ? "#f3e8ff" : used ? "#f5f5f5" : "#ffffff",
           opacity: blockedByOther ? 0.55 : 1 }}>
         <div style={{ fontSize: compact ? 11 : 12, fontWeight: 800, lineHeight: 1.15, color: active ? "#ffffff" : used ? "#aaaaaa" : "#111111" }}>{CHIPS[key].label}</div>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, marginTop: 3, textTransform: "uppercase", color: active ? "rgba(255,255,255,0.8)" : used ? "#aaaaaa" : "#15803d" }}>
-          {active ? "Active" : used ? `Used GW${st.used.gameweek_id}` : "Available"}
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, marginTop: 3, textTransform: "uppercase", color: active ? "rgba(255,255,255,0.8)" : selected ? "#4B0082" : used ? "#aaaaaa" : "#15803d" }}>
+          {active ? "Active" : selected ? "Selected" : used ? `Used GW${st.used.gameweek_id}` : "Available"}
         </div>
       </button>
     );
@@ -1163,14 +1182,14 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
     if (st.state === "used") note = `You played this chip in GW${st.used.gameweek_id}. Each chip can be used once per season.`;
     else if (!windowOpen) note = "The transfer window is closed, so chips can't be played or cancelled right now.";
     else if (st.state === "available" && activeChip) note = `You've already played ${CHIPS[activeChip.chip].label} this gameweek. Only one chip per gameweek.`;
-    else if (st.state === "available" && def.beforeSave && savedThisGw) note = `${def.label} has to be played before you save your squad, and you've already saved for GW${activeGw}.`;
-    else if (st.state === "active" && !def.cancellable) note = "Your Wildcard is active for this gameweek. It can't be cancelled.";
-    else if (st.state === "active" && def.beforeSave && savedThisGw) note = "Your squad is saved, so this chip is locked in.";
+    else if (st.state === "available" && savedThisGw) note = `Chips can only be played before you save your squad, and you've already saved for GW${activeGw}. You can use it in a later gameweek.`;
+    else if (st.state === "selected") note = "Selected, but not used yet. It's only used when you save your squad. If you leave without saving, it stays available.";
+    else if (st.state === "active") note = key === "player_boost" ? "Your squad is saved, so this chip is used. You can still change which player gets the boost until the deadline." : key === "triple_captain" ? "Your squad is saved, so this chip is used. You can still change your captain until the deadline." : "Your squad is saved, so this chip is locked in.";
     return (
       bottomSheet(def.label, () => setChipSheet(null), <>
         <div style={{ fontSize: 14, color: "#444444", lineHeight: 1.5, marginBottom: 12 }}>{def.desc}</div>
-        {key === "wildcard" && st.state === "available" && <div style={{ fontSize: 13, color: "#92400e", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>Once you play your Wildcard you can't cancel it, even before saving.</div>}
-        {key === "player_boost" && (st.state === "available" || st.state === "active") && windowOpen && (
+        {st.state === "available" && !savedThisGw && windowOpen && <div style={{ fontSize: 13, color: "#92400e", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>Select this before you save your squad. It's used when you confirm your save, and can't be cancelled after that.</div>}
+        {key === "player_boost" && ((st.state === "available" && !savedThisGw) || st.state === "active" || st.state === "selected") && windowOpen && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888888", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Choose a player</div>
             {boostOptions.length === 0 ? <div style={{ fontSize: 13, color: "#888888" }}>Add players to your squad first.</div> : (
@@ -1189,9 +1208,9 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {note && <div style={{ fontSize: 13, color: "#555555", background: "#f5f5f5", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>{note}</div>}
         {chipMsg && <div style={{ fontSize: 13, color: "#dc2626", marginBottom: 10 }}>{chipMsg}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {canActivate(key) && sheetBtn(chipBusy ? "Playing..." : `Play ${def.label}`, () => activateChip(key), "primary", chipBusy)}
-          {key === "player_boost" && st.state === "active" && windowOpen && boostPick !== st.used.boost_player_id && sheetBtn(chipBusy ? "Saving..." : "Change boost player", changeBoost, "primary", chipBusy)}
-          {canCancel(key) && sheetBtn(chipBusy ? "Cancelling..." : `Cancel ${def.label}`, () => cancelChip(key), "danger", chipBusy)}
+          {canActivate(key) && sheetBtn(chipBusy ? "Playing..." : `Select ${def.label}`, () => activateChip(key), "primary", chipBusy)}
+          {key === "player_boost" && (st.state === "active" || st.state === "selected") && windowOpen && boostPick !== st.used.boost_player_id && sheetBtn(chipBusy ? "Saving..." : "Change boost player", changeBoost, "primary", chipBusy)}
+          {canCancel(key) && sheetBtn(`Deselect ${def.label}`, () => cancelChip(key), "danger")}
           {sheetBtn("Close", () => setChipSheet(null), "secondary")}
         </div>
       </>)
@@ -1206,7 +1225,7 @@ function SquadPage({ players, userId, activeGw, transfersOpen }) {
         {[
           ["Captain", squad.find(x => x.id === captain)?.name || "-"],
           ["Vice-captain", squad.find(x => x.id === viceCaptain)?.name || "-"],
-          ...(activeChip ? [["Chip", CHIPS[activeChip.chip].label]] : []),
+          ...(activeChip ? [["Chip", activeChip.pending ? `${CHIPS[activeChip.chip].label} (used when you confirm)` : CHIPS[activeChip.chip].label]] : []),
           ...(activeGw > 1 && !firstSquad ? [["Transfers", unlimitedTransfers ? `${confirmSave.transfersIn} (unlimited this week)` : `${confirmSave.transfersIn} of ${freeTransfers} free`]] : []),
         ].map(([l, v]) => (
           <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #f5f5f5", fontSize: 14 }}>
