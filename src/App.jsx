@@ -2169,12 +2169,7 @@ function StatsPage({ players, activeGw }) {
           prev[uid].forEach(pid => { if (!cur[uid].has(pid)) outCounts[pid] = (outCounts[pid] || 0) + 1; });
         });
 
-        let chipCounts = null;
-        try {
-          const { data: ch } = await supabase.from("chips").select("chip, gameweek_id");
-          chipCounts = CHIP_ORDER.map(k => ({ key: k, season: (ch || []).filter(c => c.chip === k).length, thisGw: (ch || []).filter(c => c.chip === k && c.gameweek_id === activeGw).length }));
-        } catch (e) { /* not set up */ }
-        setStats({ topScorer, topWicketer, bestFantasy, topPicked, topFantasyPlayer, playerOfGw, transfersIn: top5(inCounts), transfersOut: top5(outCounts), chipCounts });
+        setStats({ topScorer, topWicketer, bestFantasy, topPicked, topFantasyPlayer, playerOfGw, transfersIn: top5(inCounts), transfersOut: top5(outCounts) });
       } catch (e) {
         setError("Failed to load stats. Please try again.");
       }
@@ -2242,23 +2237,6 @@ function StatsPage({ players, activeGw }) {
 
           <StatBlock title={`MOST TRANSFERRED IN · GW${activeGw}`} accent="#15803d">
             <RankList items={stats?.transfersIn} color="#15803d" empty={activeGw > 1 ? "No transfers made yet this gameweek." : "Transfers start from GW2."} />
-          </StatBlock>
-
-          <StatBlock title="CHIPS PLAYED" accent="#4B0082">
-            {!stats?.chipCounts ? noData : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px", fontSize: 9, color: "#aaaaaa", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                  <span>Chip</span><span style={{ textAlign: "right" }}>GW{activeGw}</span><span style={{ textAlign: "right" }}>Season</span>
-                </div>
-                {stats.chipCounts.map(c => (
-                  <div key={c.key} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px", fontSize: 13, alignItems: "center" }}>
-                    <span style={{ fontWeight: 600, color: C.black }}>{CHIPS[c.key].label}</span>
-                    <span style={{ textAlign: "right", fontWeight: 700, color: "#4B0082" }}>{c.thisGw}</span>
-                    <span style={{ textAlign: "right", color: "#666666" }}>{c.season}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </StatBlock>
 
           <StatBlock title={`MOST TRANSFERRED OUT · GW${activeGw}`} accent="#dc2626">
