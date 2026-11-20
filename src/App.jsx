@@ -100,7 +100,7 @@ function ChipTag({ chip }) {
 
 const MAX_MARQUEE = 3;
 
-// Transfer deadlines, 9 AM Melbourne time on match day.
+// Transfer deadlines, Melbourne time on match day (9 AM for GW1-5, 11 AM from GW6).
 // All +11:00 = AEDT (daylight saving runs 4 Oct 2026 to 4 Apr 2027).
 const GW_DEADLINES = {
   1: "2026-10-10T09:00:00+11:00",
@@ -108,16 +108,16 @@ const GW_DEADLINES = {
   3: "2026-10-31T09:00:00+11:00",
   4: "2026-11-07T09:00:00+11:00",
   5: "2026-11-14T09:00:00+11:00",
-  6: "2026-11-21T09:00:00+11:00",
-  7: "2026-12-05T09:00:00+11:00",
-  8: "2026-12-19T09:00:00+11:00",
-  9: "2027-01-09T09:00:00+11:00",
-  10: "2027-01-16T09:00:00+11:00",
-  11: "2027-01-23T09:00:00+11:00",
-  12: "2027-01-30T09:00:00+11:00",
-  13: "2027-02-06T09:00:00+11:00",
-  14: "2027-02-13T09:00:00+11:00",
-  15: "2027-02-27T09:00:00+11:00",
+  6: "2026-11-21T11:00:00+11:00",
+  7: "2026-12-05T11:00:00+11:00",
+  8: "2026-12-19T11:00:00+11:00",
+  9: "2027-01-09T11:00:00+11:00",
+  10: "2027-01-16T11:00:00+11:00",
+  11: "2027-01-23T11:00:00+11:00",
+  12: "2027-01-30T11:00:00+11:00",
+  13: "2027-02-06T11:00:00+11:00",
+  14: "2027-02-13T11:00:00+11:00",
+  15: "2027-02-27T11:00:00+11:00",
 };
 
 const SCORING = [
@@ -142,7 +142,7 @@ const RULES = [
   { title: "Saving your squad", desc: "You get one squad save per gameweek and it's final. Once you tap Save Squad, your players are locked until the next gameweek. Only your captain and vice-captain can still be changed." },
   { title: "Transfers", desc: "GW1 is unlimited, so build your best squad freely. From GW2 onwards, you get 4 free transfers per gameweek. If you make no transfers in a gameweek, you get 2 extra free transfers the next week, up to a maximum of 8. Making any transfer resets you to 4 the following week. Each transfer beyond your free ones costs -10 points from your GW score." },
   { title: "Chips", desc: "You get four chips, each usable once per season, and only one per gameweek. Triple Captain: your captain scores 3x. Player Boost: one player (not C or VC) scores 2x. Free Hit: unlimited transfers for one week, then your squad goes back. Wildcard: unlimited transfers that stick. Chips can only be selected before you save your squad, and a chip is only used when you save. If you leave without saving, it stays available. Once saved, it can't be cancelled. With Triple Captain you can still change your captain until the deadline. With Player Boost, your boosted player is locked in once you save." },
-  { title: "Deadlines", desc: "The transfer deadline is 9 AM on match day (first deadline: 9 AM, Saturday 10 October). Late transfers are not accepted." },
+  { title: "Deadlines", desc: "The transfer deadline is 11 AM on match day. Late transfers are not accepted." },
   { title: "Scoring", desc: "Every player in your 15 scores: runs, wickets, catches, and run outs all count." },
   { title: "View teams", desc: "Other managers' squads are visible only after the transfer window closes." },
   { title: "PlayCricket", desc: "Scores are entered after each round and updated by Sunday." },
